@@ -43,7 +43,7 @@ def _(mo):
 
         All digitized using [plot digitizer](https://www.graphreader.com/v2)
 
-        Note: Original MOFs MIP-200 and Co-CUK-1 were witheld based on comments made by Dr. Howarth, same with new MOFs NU-1500-Cr and Cr-soc-MOF-1. New MOFs MOF-303, Al-Fum, CAU-10, and Y-shp-MOF-5 were added. 
+        Note: Original MOFs MIP-200 and Co-CUK-1 were witheld based on comments made by Dr. Howarth, same with new MOFs NU-1500-Cr and Cr-soc-MOF-1. New MOFs MOF-303, Al-Fum, CAU-10, and Y-shp-MOF-5 were added.
         """
     )
     return
@@ -317,14 +317,17 @@ def _(pd):
         def __init__(self, month):
             self.month = month
 
-        def read_raw_weather_data(self,month):
-            self.raw_data = pd.read('data/PHX_{}_2023')
-
+        def read_raw_weather_data(self):
+            weather_filename = 'new/data/Weather_noclouds/PHX_{}_2023.csv'.format(self.month)
+            raw_data = pd.read_csv(weather_filename)
+            self.raw_weather_data = raw_data
+            
+    '''
         def process_weather_data(self):
             self.data = self.raw_data['Temperature'] = (self.raw_data['Temperature'] - 32) * 5/9
 
-            
-    '''
+
+
         def night_conditions(self, day):
             return temperature, p_ovr_p0
 
@@ -336,23 +339,19 @@ def _(pd):
             # visualize time series
             # 
     '''
-
     return (Weather,)
 
 
-app._unparsable_cell(
-    r"""
-    weather = 
-    """,
-    name="_"
-)
+@app.cell
+def _(Weather):
+    weather = Weather('06')
+    weather.read_raw_weather_data()
+    return (weather,)
 
 
 @app.cell
-def _(data):
-    def read_raw_weather_data(month):
-        data
-    return (read_raw_weather_data,)
+def _():
+    return
 
 
 app._unparsable_cell(
@@ -366,9 +365,9 @@ app._unparsable_cell(
 
 
 @app.cell
-def _(mo):
-    mo.md(r""" """)
-    return
+def _(pd):
+    Phoenix = pd.read_csv('new/data/Weather_noclouds/PHX_06_2023')
+    return (Phoenix,)
 
 
 @app.cell
