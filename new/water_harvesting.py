@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.2"
+__generated_with = "0.10.5"
 app = marimo.App(width="medium")
 
 
@@ -32,6 +32,18 @@ def _(mo):
         | MOF | original reference | data extraction method | confirmed data fidelity | 
         | -- | -- | -- | -- | 
         | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6 | ✅ |
+        | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2A |
+        | CAU-23 | [link](https://www.nature.com/articles/s41467-019-10960-0)| plot digitized from Fig 2 |
+        | MIL-160 | [link](https://onlinelibrary.wiley.com/doi/10.1002/adma.201502418) | plot digitized from SI page 7 |
+        | Y-shp-MOF-5 | [link](https://pubs.acs.org/doi/10.1021/jacs.7b04132) | plot digitized from Fig. 2 |
+        | MOF-303 | [link](https://www.science.org/doi/10.1126/science.abj0890) | plot digitized from Fig. 1 A |
+        | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 |
+        | Al-Fum | [link](https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d) | plot digitized from Fig. 3 |
+
+
+        All digitized using [plot digitizer](https://www.graphreader.com/v2)
+
+        Note: Original MOFs MIP-200 and Co-CUK-1 were witheld based on comments made by Dr. Howarth, same with new MOFs NU-1500-Cr and Cr-soc-MOF-1. New MOFs MOF-303, Al-Fum, CAU-10, and Y-shp-MOF-5 were added. 
         """
     )
     return
@@ -104,62 +116,62 @@ def _(
 
             # fit char. curve
             self.fit_characteristic_curve()
-            
+
         def _read_ads_data(self, temperature):
             """
             read_ads_data(mof, temperature)
-        
+
             temperature (integer for file-reading): degree C
             """
             # filename convention
             filename = 'data/{}_{}C.csv'.format(self.mof, temperature)
-        
+
             # reads adsorption isotherm data
             ads_data = pd.read_csv(filename)
-        
+
             # if the first row is zero RH, drop it.
             if ads_data['RH[%]'][0] == 0:
                 ads_data = ads_data.drop(0)
                 ads_data = ads_data.reset_index(drop=True)
-        
+
             # convert humidity to P/P_0
             if ads_data['RH[%]'].max() > 1.0: # truly a percent
                 ads_data['P/P_0'] = ads_data['RH[%]'] / 100
             else: # RH ranges from 0 to 1
                 ads_data['P/P_0'] = ads_data['RH[%]']
-        
+
             # Gets rid of the Humidity column, now we're using P/P_0
             ads_data = ads_data.drop(columns=['RH[%]']) 
-        
+
             # Polanyi adsorption potential for every P/P_0 in the data set
             ads_data["A [kJ/mol]"] = -R * (temperature + 273.15) * np.log(ads_data['P/P_0'])
-        
+
             return ads_data
 
         def fit_characteristic_curve(self):
             # read in adsorption isotherm data at fit temperature
             data = self._read_ads_data(self.fit_temperature)
-            
+
             # sort rows by A values
             data = data.sort_values('A [kJ/mol]')
-            
+
             # monotonic interpolation of water ads. as a function of Polanyi potential A.
             self.ads_of_A = interpolate.PchipInterpolator(
                 data['A [kJ/mol]'].values, data['Water Uptake [kg kg-1]'].values
             )
-            
+
         def predict_water_adsorption(self, temperature, p_over_p0):
             """
             use Polyanyi potential to predict water adsorption in a MOF, 
             given the temperature, P/P_0, and the characteristic curve.
-            
+
             to do so, we 
             (i) calculate the Polyanyi potential
             (ii) look up the water adsorption at that potential, on the char. curve.
             """
             # Calculate the Polanyi potential [kJ/mol]
             A = -R * (temperature + 273.15) * np.log(p_over_p0)
-            
+
             # compute water adsorption at this A on the char. curve
             return self.ads_of_A(A).item() # kg/kg
 
@@ -227,11 +239,11 @@ def _(
                 # track A_max
                 if data['A [kJ/mol]'].max() > A_max:
                     A_max = data['A [kJ/mol]'].max()
-                    
+
             if incl_model:
                 As = np.linspace(0, A_max)
                 plt.plot(As, self.ads_of_A(As), color=T_to_color(self.fit_temperature))
-                
+
             plt.ylim(ymin=0)
             plt.xlim(xmin=0)
             plt.legend(prop={'size': 8})
@@ -277,11 +289,6 @@ def _(mof):
 
 
 @app.cell
-def _():
-    return
-
-
-@app.cell
 def _(mo):
     mo.md(
         r"""
@@ -297,23 +304,27 @@ def _(mo):
         where each row is a unique day.
 
         how is night and day determined? a given time? or the min/max? let's go with min/max.
+
+        weather data needs more processing if you want to calculate solar flux, as file changes
         """
     )
     return
 
 
-app._unparsable_cell(
-    r"""
+@app.cell
+def _(pd):
     class Weather:
         def __init__(self, month):
             self.month = month
 
-        def read_raw_weather_data(self):
-            self.raw_data = 
+        def read_raw_weather_data(self,month):
+            self.raw_data = pd.read('data/PHX_{}_2023')
 
         def process_weather_data(self):
-            self.data = 
+            self.data = self.raw_data['Temperature'] = (self.raw_data['Temperature'] - 32) * 5/9
 
+            
+    '''
         def night_conditions(self, day):
             return temperature, p_ovr_p0
 
@@ -324,15 +335,17 @@ app._unparsable_cell(
         def viz(self):
             # visualize time series
             # 
+    '''
+
+    return (Weather,)
+
+
+app._unparsable_cell(
+    r"""
+    weather = 
     """,
     name="_"
 )
-
-
-@app.cell
-def _(Weather):
-    weather = Weather("Jan")
-    return (weather,)
 
 
 @app.cell
