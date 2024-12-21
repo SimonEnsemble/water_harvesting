@@ -15,7 +15,24 @@ def _():
     from scipy.optimize import linprog
     from dataclasses import dataclass
     import os
-    return dataclass, interpolate, linprog, mo, mpl, np, os, pd, plt
+
+    # matplotlib styles
+    from aquarel import load_theme
+    theme = load_theme("scientific").set_font(size=18)
+    theme.apply()
+    return (
+        dataclass,
+        interpolate,
+        linprog,
+        load_theme,
+        mo,
+        mpl,
+        np,
+        os,
+        pd,
+        plt,
+        theme,
+    )
 
 
 @app.cell
@@ -32,24 +49,28 @@ def _(mo):
 
         ::icon-park:data:: experimental water adsorption data in MOFs; raw data stored in `data/`.
 
-        | MOF | original reference | data extraction method | confirmed data fidelity | 
-        | -- | -- | -- | -- | 
-        | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6 | ✅ |
-        | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2A |
-        | CAU-23 | [link](https://www.nature.com/articles/s41467-019-10960-0)| plot digitized from Fig 2 |
-        | MIL-160 | [link](https://onlinelibrary.wiley.com/doi/10.1002/adma.201502418) | plot digitized from SI page 7 |
-        | Y-shp-MOF-5 | [link](https://pubs.acs.org/doi/10.1021/jacs.7b04132) | plot digitized from Fig. 2 |
-        | MOF-303 | [link](https://www.science.org/doi/10.1126/science.abj0890) | plot digitized from Fig. 1 A |
-        | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 |
-        | Al-Fum | [link](https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d) | plot digitized from Fig. 3 |
+        | MOF | original reference | data extraction method | confirmed data fidelity | notes |
+        | -- | -- | -- | -- | -- |
+        | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6 | ✅ | |
+        | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2A | | hysteresis marginal |
+        | CAU-23 | [link](https://www.nature.com/articles/s41467-019-10960-0)| plot digitized from Fig 2 | |
+        | MIL-160 | [link](https://onlinelibrary.wiley.com/doi/10.1002/adma.201502418) | plot digitized from SI page 7 | |
+        | Y-shp-MOF-5 | [link](https://pubs.acs.org/doi/10.1021/jacs.7b04132) | plot digitized from Fig. 2 | |
+        | MOF-303 | [link](https://www.science.org/doi/10.1126/science.abj0890) | plot digitized from Fig. 1 A | |
+        | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 | |
+        | Al-Fum | [link](https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d) | plot digitized from Fig. 3 | |
 
-        we extracted all water adsorption data from plots in the papers using [plot digitizer](https://www.graphreader.com/v2).
+        we extracted all water adsorption data from plots in the papers using [plot digitizer](https://www.graphreader.com/v2). we took only the _adsorption_ branch, neglecting hysteresis.
 
         below, our class `MOFWaterAds` aims to:
 
         * read in the raw adsorption data
         * visualize the raw adsorption data
         * employ Polanyi potential theory to predict adsorption in MOFs at any temperature and pressure.
+
+        Cory's notes: 
+
+        * KMF-1: I think we should use the 25 deg C one in Fig. 2b.
         """
     )
     return
@@ -107,6 +128,9 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
             mof (string): name of MOF. e.g. "MOF-801"
             data_temperatures: list of data temperatures in degrees C.
             """
+            if not fit_temperature in data_temperatures:
+                raise Exception("fit temp not in data temps!")
+
             self.mof = mof
             self.fit_temperature = fit_temperature
             self.data_temperatures = data_temperatures
@@ -194,6 +218,7 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
             plt.legend(title="T = {}$^\circ$C".format(temperature))
             plt.ylim(ymin=0)
             plt.xlim(xmin=0)
+            plt.title(self.mof)
             plt.show()
 
         def viz_adsorption_isotherms(self, incl_predictions=True):
@@ -218,6 +243,7 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
                     )
             plt.ylim(ymin=0)
             plt.xlim(xmin=0)
+            plt.title(self.mof)
             plt.legend(prop={'size': 8})
             plt.show()
 
@@ -226,7 +252,7 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
             plt.xlabel(axis_labels['potential'])
             plt.ylabel(axis_labels['adsorption'])
 
-            A_max = -1.0
+            A_max = -1.0 # for determining axis limits
             for temperature in self.data_temperatures:
                 # read ads isotherm data
                 data = self._read_ads_data(temperature)
@@ -247,6 +273,7 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
 
             plt.ylim(ymin=0)
             plt.xlim(xmin=0)
+            plt.title(self.mof)
             plt.legend(prop={'size': 8})
             plt.show()
     return (MOFWaterAds,)
@@ -281,7 +308,7 @@ def _(mo):
 def _(mof):
     mof._read_ads_data(
         # temperature [°C]
-        15
+        45
     )
     return
 
@@ -327,15 +354,55 @@ def _(mof):
     return
 
 
-@app.cell
-def _(mof):
-    mof.plot_characteristic_curves()
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""plot the characteristic curves (both data and theory).""")
     return
 
 
 @app.cell
 def _(mof):
     mof.plot_characteristic_curves()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""### KMF-1""")
+    return
+
+
+@app.cell
+def _(MOFWaterAds, mof_to_data_temperatures):
+    _mof = MOFWaterAds(
+        # name of MOF crystal structure
+        "KMF-1", 
+        # temperature [°C]
+        20, 
+        # list of temperatures for which we have data [°C]
+        mof_to_data_temperatures["KMF-1"]
+    )
+    _mof.viz_adsorption_isotherms()
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""### CAU-23""")
+    return
+
+
+@app.cell
+def _(MOFWaterAds, mof_to_data_temperatures):
+    _mof = MOFWaterAds(
+        # name of MOF crystal structure
+        "CAU-23", 
+        # temperature [°C]
+        20, 
+        # list of temperatures for which we have data [°C]
+        mof_to_data_temperatures["CAU-23"]
+    )
+    _mof.viz_adsorption_isotherms()
     return
 
 
@@ -440,7 +507,6 @@ def _(pd, self):
             monthly_conditions = pd.DataFrame(results)
 
             return monthly_conditions
-
     return (Weather,)
 
 
