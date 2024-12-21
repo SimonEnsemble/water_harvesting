@@ -312,41 +312,106 @@ def _(mo):
 
 
 @app.cell
-def _(pd):
+def _(pd, self):
     class Weather:
         def __init__(self, month):
             self.month = month
 
         def read_raw_weather_data(self):
-            weather_filename = 'new/data/Weather_noclouds/PHX_{}_2023.csv'.format(self.month)
+            weather_filename = 'data/Weather_noclouds/PHX_{}_2023.csv'.format(self.month)
             raw_data = pd.read_csv(weather_filename)
-            self.raw_weather_data = raw_data
+            return raw_data
             
-    '''
+
         def process_weather_data(self):
-            self.data = self.raw_data['Temperature'] = (self.raw_data['Temperature'] - 32) * 5/9
+            
+            raw_data = self.read_raw_weather_data()
+            processing_data = raw_data
 
-
+            processing_data['Date'] = pd.to_datetime(processing_data['DateTime']).dt.date
+            processing_data['Time'] = pd.to_datetime(processing_data['DateTime']).dt.time
+            processing_data = processing_data.drop('DateTime',axis=1)
+            processing_data['Temperature'] = (processing_data['Temperature'] - 32) * 5/9
+            processing_data['Relative Humidity'] = processing_data['Relative Humidity'] / 100
+            processing_data = processing_data.drop('Dew Point',axis=1)
+            
+            processed_data = processing_data
+            return processed_data
+            
 
         def night_conditions(self, day):
-            return temperature, p_ovr_p0
 
+            date = '2023-{}-{}'.format(self.month,day)
+            
+            month_data = self.process_weather_data()
+            month_data["Date"] = month_data["Date"].astype(str)
+            date_data = month_data[month_data["Date"] == date]
+            date_data = date_data.reset_index(drop=True)
+
+            night_conditions = date_data[date_data["Temperature"] == date_data["Temperature"].max()]
+            temp = night_conditions['Temperature'].astype(float)
+            RH = night_conditions["Relative Humidity"].astype(float)
+            time = night_conditions['Time']
+            
+            return temp, RH, time
+        
+
+            
         def day_conditions(self, day):
             # uses solar flux somehow
-            return temperature, p_ovr_p0
 
+            date = '2023-{}-{}'.format(self.month,day)
+            
+            month_data = self.process_weather_data()
+            month_data["Date"] = month_data["Date"].astype(str)
+            date_data = month_data[month_data["Date"] == date]
+            date_data = date_data.reset_index(drop=True)
+
+            day_conditions = date_data[date_data["Temperature"] == date_data["Temperature"].max()]
+            day_conditions = day_conditions.reset_index(drop=True)
+            temp = day_conditions['Temperature']
+            temp = temp[0]
+            RH = day_conditions["Relative Humidity"]
+            RH = RH[0]
+            time = day_conditions['Time']
+            time = time[0]
+            
+            return print(type(time))
+
+        def monthly_weather():
+
+            month_data = self.process_weather_data()
+            day_list = month_data['Date'].unique()
+
+            results = [
+                {"day": day, "temperature": day_temp, "humidity": day_RH, "time": day_time}
+                for day in day_list
+                for day_temp, day_RH, day_time in [self.day_conditions(day)]]
+                                                  
+            monthly_conditions = pd.DataFrame(results)
+            
+            return monthly_conditions
+
+    """
         def viz(self):
             # visualize time series
             # 
-    '''
+    """
     return (Weather,)
 
 
 @app.cell
 def _(Weather):
     weather = Weather('06')
-    weather.read_raw_weather_data()
+    weather.day_conditions('05')
     return (weather,)
+
+
+@app.cell
+def _(weather):
+    weather.day_conditions('05')
+
+    return
 
 
 @app.cell
@@ -362,12 +427,6 @@ app._unparsable_cell(
     """,
     name="_"
 )
-
-
-@app.cell
-def _(pd):
-    Phoenix = pd.read_csv('new/data/Weather_noclouds/PHX_06_2023')
-    return (Phoenix,)
 
 
 @app.cell
