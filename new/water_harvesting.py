@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.5"
+__generated_with = "0.10.6"
 app = marimo.App(width="medium")
 
 
@@ -13,8 +13,9 @@ def _():
     import numpy as np
     from scipy import interpolate
     from scipy.optimize import linprog
+    from dataclasses import dataclass
     import os
-    return interpolate, linprog, mo, mpl, np, os, pd, plt
+    return dataclass, interpolate, linprog, mo, mpl, np, os, pd, plt
 
 
 @app.cell
@@ -29,6 +30,8 @@ def _(mo):
         r"""
         # 💧 modeling water adsorption in the MOFs
 
+        ::icon-park:data:: experimental water adsorption data in MOFs; raw data stored in `data/`.
+
         | MOF | original reference | data extraction method | confirmed data fidelity | 
         | -- | -- | -- | -- | 
         | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6 | ✅ |
@@ -40,10 +43,13 @@ def _(mo):
         | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 |
         | Al-Fum | [link](https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d) | plot digitized from Fig. 3 |
 
+        we extracted all water adsorption data from plots in the papers using [plot digitizer](https://www.graphreader.com/v2).
 
-        All digitized using [plot digitizer](https://www.graphreader.com/v2)
+        below, our class `MOFWaterAds` aims to:
 
-        Note: Original MOFs MIP-200 and Co-CUK-1 were witheld based on comments made by Dr. Howarth, same with new MOFs NU-1500-Cr and Cr-soc-MOF-1. New MOFs MOF-303, Al-Fum, CAU-10, and Y-shp-MOF-5 were added.
+        * read in the raw adsorption data
+        * visualize the raw adsorption data
+        * employ Polanyi potential theory to predict adsorption in MOFs at any temperature and pressure.
         """
     )
     return
@@ -51,10 +57,13 @@ def _(mo):
 
 @app.cell
 def _():
-    mofs = ["MOF-801"]
+    # list of MOFs
+    mofs = ["MOF-801", "KMF-1"]
 
+    # maps MOF to the temperatures at which we possess adsorption data
     mof_to_data_temperatures = {
-        "MOF-801": [15, 25, 45, 65, 85]
+        "MOF-801": [15, 25, 45, 65, 85],
+        "KMF-1": [20]
     }
     return mof_to_data_temperatures, mofs
 
@@ -67,43 +76,31 @@ def _():
 
 @app.cell
 def _(mpl):
-    # commonly used labels
-    pressure_label = 'relative humidity, P/P_0'
-    water_ads_label = 'water uptake [kg/kg]'
-    polanyi_pot_label = 'Polanyi Potential [kJ/mol]'
+    # stuff for data viz
+
+    # commonly-used plot labels
+    axis_labels = {
+        'pressure': 'relative humidity, $P/P_0$',
+        'adsorption': 'water uptake, $w$ [kg/kg]',
+        'potential': 'Polanyi Potential, $A(T, P/P_0)$ [kJ/mol]'
+    }
 
     # mapping temperature to color
-    temperature_cmap_norm = mpl.colors.Normalize(vmin=15.0, vmax=90.0)
-
     temperature_cmap = mpl.colormaps["inferno"]
-    temperature_cmap
+    temperature_cmap_norm = mpl.colors.Normalize(vmin=15.0, vmax=90.0)
 
     def T_to_color(temperature):
         if temperature < temperature_cmap_norm.vmin or temperature > temperature_cmap_norm.vmax:
             raise Exception("out of temperature normalization range.")
+
         return temperature_cmap(temperature_cmap_norm(temperature))
-    return (
-        T_to_color,
-        polanyi_pot_label,
-        pressure_label,
-        temperature_cmap,
-        temperature_cmap_norm,
-        water_ads_label,
-    )
+
+    temperature_cmap
+    return T_to_color, axis_labels, temperature_cmap, temperature_cmap_norm
 
 
 @app.cell
-def _(
-    R,
-    T_to_color,
-    interpolate,
-    np,
-    pd,
-    plt,
-    polanyi_pot_label,
-    pressure_label,
-    water_ads_label,
-):
+def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
     class MOFWaterAds:
         def __init__(self, mof, fit_temperature, data_temperatures):
             """
@@ -169,6 +166,9 @@ def _(
             (i) calculate the Polyanyi potential
             (ii) look up the water adsorption at that potential, on the char. curve.
             """
+            if p_over_p0 > 1.0:
+                raise Exception("RH must fall in [0, 1]...")
+
             # Calculate the Polanyi potential [kJ/mol]
             A = -R * (temperature + 273.15) * np.log(p_over_p0)
 
@@ -181,16 +181,17 @@ def _(
             color = T_to_color(temperature)
 
             plt.figure()
-            plt.xlabel(pressure_label)
-            plt.ylabel(water_ads_label)
-            plt.scatter(data['P/P_0'], data['Water Uptake [kg kg-1]'], clip_on=False, color=color)
+            plt.xlabel(axis_labels['pressure'])
+            plt.ylabel(axis_labels['adsorption'])
+            plt.scatter(data['P/P_0'], data['Water Uptake [kg kg-1]'], clip_on=False, color=color, label="data")
             if incl_predictions:
                 p_ovr_p0s = np.linspace(0, 1, 100)[1:]
                 plt.plot(
                     p_ovr_p0s, [self.predict_water_adsorption(temperature, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
-                    color=color
+                    color=color, label="theory"
                 )
-            plt.title("temperature = {} deg. C".format(temperature))
+
+            plt.legend(title="T = {}$^\circ$C".format(temperature))
             plt.ylim(ymin=0)
             plt.xlim(xmin=0)
             plt.show()
@@ -198,8 +199,8 @@ def _(
         def viz_adsorption_isotherms(self, incl_predictions=True):
             plt.figure()
             plt.title('water adsorption isotherms')
-            plt.xlabel(pressure_label)
-            plt.ylabel(water_ads_label)
+            plt.xlabel(axis_labels['pressure'])
+            plt.ylabel(axis_labels['adsorption'])
             for temperature in self.data_temperatures:
                 # read ads isotherm data
                 data = self._read_ads_data(temperature)
@@ -222,8 +223,8 @@ def _(
 
         def plot_characteristic_curves(self, incl_model=True):
             plt.figure()
-            plt.xlabel(polanyi_pot_label)
-            plt.ylabel(water_ads_label)
+            plt.xlabel(axis_labels['potential'])
+            plt.ylabel(axis_labels['adsorption'])
 
             A_max = -1.0
             for temperature in self.data_temperatures:
@@ -251,22 +252,60 @@ def _(
     return (MOFWaterAds,)
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""let's show off the capability of `MOFWaterAds` for an example MOF.""")
+    return
+
+
 @app.cell
 def _(MOFWaterAds, mof_to_data_temperatures):
-    mof = MOFWaterAds("MOF-801", 45, mof_to_data_temperatures["MOF-801"])
-    mof._read_ads_data(15)
+    mof = MOFWaterAds(
+        # name of MOF crystal structure
+        "MOF-801", 
+        # temperature [°C]
+        45, 
+        # list of temperatures for which we have data [°C]
+        mof_to_data_temperatures["MOF-801"]
+    )
     return (mof,)
 
 
-@app.cell
-def _(mof):
-    mof.predict_water_adsorption(25.0, 0.2)
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""retreive the raw data from an adsorption isotherm measurement.""")
     return
 
 
 @app.cell
 def _(mof):
-    mof.plot_characteristic_curves()
+    mof._read_ads_data(
+        # temperature [°C]
+        15
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""use Polanyi theory to predict water adsorption at a different temperature and relative humidity.""")
+    return
+
+
+@app.cell
+def _(mof):
+    mof.predict_water_adsorption(
+        # temperature [°C]
+        25.0,
+        # RH (fraction)
+        0.2
+    ) # g H20 / g MOF
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""visualize the adsorption isotherm data (dots) and Polanyi theory fit (lines).""")
     return
 
 
@@ -276,9 +315,21 @@ def _(mof):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""visualize all measured adsorption data.""")
+    return
+
+
 @app.cell
 def _(mof):
     mof.viz_adsorption_isotherms()
+    return
+
+
+@app.cell
+def _(mof):
+    mof.plot_characteristic_curves()
     return
 
 
@@ -320,11 +371,9 @@ def _(pd, self):
         def read_raw_weather_data(self):
             weather_filename = 'data/Weather_noclouds/PHX_{}_2023.csv'.format(self.month)
             raw_data = pd.read_csv(weather_filename)
-            return raw_data
-            
-
+            self.raw_weather_data = raw_data
         def process_weather_data(self):
-            
+
             raw_data = self.read_raw_weather_data()
             processing_data = raw_data
 
@@ -334,15 +383,15 @@ def _(pd, self):
             processing_data['Temperature'] = (processing_data['Temperature'] - 32) * 5/9
             processing_data['Relative Humidity'] = processing_data['Relative Humidity'] / 100
             processing_data = processing_data.drop('Dew Point',axis=1)
-            
+
             processed_data = processing_data
             return processed_data
-            
+
 
         def night_conditions(self, day):
 
             date = '2023-{}-{}'.format(self.month,day)
-            
+
             month_data = self.process_weather_data()
             month_data["Date"] = month_data["Date"].astype(str)
             date_data = month_data[month_data["Date"] == date]
@@ -352,16 +401,16 @@ def _(pd, self):
             temp = night_conditions['Temperature'].astype(float)
             RH = night_conditions["Relative Humidity"].astype(float)
             time = night_conditions['Time']
-            
-            return temp, RH, time
-        
 
-            
+            return temp, RH, time
+
+
+
         def day_conditions(self, day):
             # uses solar flux somehow
 
             date = '2023-{}-{}'.format(self.month,day)
-            
+
             month_data = self.process_weather_data()
             month_data["Date"] = month_data["Date"].astype(str)
             date_data = month_data[month_data["Date"] == date]
@@ -375,7 +424,7 @@ def _(pd, self):
             RH = RH[0]
             time = day_conditions['Time']
             time = time[0]
-            
+
             return print(type(time))
 
         def monthly_weather():
@@ -387,16 +436,11 @@ def _(pd, self):
                 {"day": day, "temperature": day_temp, "humidity": day_RH, "time": day_time}
                 for day in day_list
                 for day_temp, day_RH, day_time in [self.day_conditions(day)]]
-                                                  
+
             monthly_conditions = pd.DataFrame(results)
-            
+
             return monthly_conditions
 
-    """
-        def viz(self):
-            # visualize time series
-            # 
-    """
     return (Weather,)
 
 
@@ -410,7 +454,6 @@ def _(Weather):
 @app.cell
 def _(weather):
     weather.day_conditions('05')
-
     return
 
 
