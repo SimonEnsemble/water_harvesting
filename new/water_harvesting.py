@@ -53,8 +53,8 @@ def _(mo):
         | -- | -- | -- | -- | -- |
         | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6a | ✅ | |
         | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2B | ✅ |  |
-        | CAU-23 | [link](https://www.nature.com/articles/s41467-019-10960-0)| plot digitized from Fig 2 | |
-        | MIL-160 | [link](https://onlinelibrary.wiley.com/doi/10.1002/adma.201502418) | plot digitized from SI page 7 | |
+        | CAU-23 | [link](https://www.nature.com/articles/s41467-019-10960-0)| plot digitized from Fig 2 | ✅ |
+        | MIL-160 | [link](https://onlinelibrary.wiley.com/doi/10.1002/adma.201502418) | plot digitized from SI Fig. 4 |✅ |
         | Y-shp-MOF-5 | [link](https://pubs.acs.org/doi/10.1021/jacs.7b04132) | plot digitized from Fig. 2 | |
         | MOF-303 | [link](https://www.science.org/doi/10.1126/science.abj0890) | plot digitized from Fig. 1 A | |
         | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 | |
@@ -77,12 +77,14 @@ def _(mo):
 @app.cell
 def _():
     # list of MOFs
-    mofs = ["MOF-801", "KMF-1"]
+    mofs = ["MOF-801", "KMF-1", "CAU-23", "MIL-160"]
 
     # maps MOF to the temperatures at which we possess adsorption data
     mof_to_data_temperatures = {
         "MOF-801": [15, 25, 45, 65, 85],
-        "KMF-1": [25]
+        "KMF-1": [25],
+        "CAU-23": [25],
+        "MIL-160": [20]
     }
     return mof_to_data_temperatures, mofs
 
@@ -223,6 +225,7 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
             plt.figure()
             plt.title('water adsorption isotherms')
             plt.xlabel(axis_labels['pressure'])
+            plt.xticks(np.linspace(0, 1, 11))
             plt.ylabel(axis_labels['adsorption'])
             for temperature in self.data_temperatures:
                 # read ads isotherm data
@@ -384,7 +387,7 @@ def _(MOFWaterAds, mof_to_data_temperatures):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""### CAU-23""")
     return
@@ -396,9 +399,29 @@ def _(MOFWaterAds, mof_to_data_temperatures):
         # name of MOF crystal structure
         "CAU-23", 
         # temperature [°C]
-        20, 
+        25, 
         # list of temperatures for which we have data [°C]
         mof_to_data_temperatures["CAU-23"]
+    )
+    _mof.viz_adsorption_isotherms()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""## MIL-160""")
+    return
+
+
+@app.cell
+def _(MOFWaterAds, mof_to_data_temperatures):
+    _mof = MOFWaterAds(
+        # name of MOF crystal structure
+        "MIL-160", 
+        # temperature [°C]
+        20, 
+        # list of temperatures for which we have data [°C]
+        mof_to_data_temperatures["MIL-160"]
     )
     _mof.viz_adsorption_isotherms()
     return
