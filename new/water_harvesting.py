@@ -51,8 +51,8 @@ def _(mo):
 
         | MOF | original reference | data extraction method | confirmed data fidelity | notes |
         | -- | -- | -- | -- | -- |
-        | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6 | ✅ | |
-        | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2A | | hysteresis marginal |
+        | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6a | ✅ | |
+        | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2B | ✅ |  |
         | CAU-23 | [link](https://www.nature.com/articles/s41467-019-10960-0)| plot digitized from Fig 2 | |
         | MIL-160 | [link](https://onlinelibrary.wiley.com/doi/10.1002/adma.201502418) | plot digitized from SI page 7 | |
         | Y-shp-MOF-5 | [link](https://pubs.acs.org/doi/10.1021/jacs.7b04132) | plot digitized from Fig. 2 | |
@@ -69,8 +69,6 @@ def _(mo):
         * employ Polanyi potential theory to predict adsorption in MOFs at any temperature and pressure.
 
         Cory's notes: 
-
-        * KMF-1: I think we should use the 25 deg C one in Fig. 2b.
         """
     )
     return
@@ -84,7 +82,7 @@ def _():
     # maps MOF to the temperatures at which we possess adsorption data
     mof_to_data_temperatures = {
         "MOF-801": [15, 25, 45, 65, 85],
-        "KMF-1": [20]
+        "KMF-1": [25]
     }
     return mof_to_data_temperatures, mofs
 
@@ -378,7 +376,7 @@ def _(MOFWaterAds, mof_to_data_temperatures):
         # name of MOF crystal structure
         "KMF-1", 
         # temperature [°C]
-        20, 
+        25, 
         # list of temperatures for which we have data [°C]
         mof_to_data_temperatures["KMF-1"]
     )
