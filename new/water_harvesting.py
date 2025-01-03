@@ -14,6 +14,7 @@ def _():
     from scipy import interpolate
     from scipy.optimize import linprog
     from dataclasses import dataclass
+    import seaborn as sns
     import os
 
     # matplotlib styles
@@ -31,6 +32,7 @@ def _():
         os,
         pd,
         plt,
+        sns,
         theme,
     )
 
@@ -75,7 +77,7 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(sns):
     # list of MOFs
     mofs = ["MOF-801", "KMF-1", "CAU-23", "MIL-160", "MOF-303", "CAU-10H", "Al-Fum", "MIP-200"]
 
@@ -90,7 +92,25 @@ def _():
         "Al-Fum": [25],
         "MIP-200": [30]
     }
-    return mof_to_data_temperatures, mofs
+
+    mof_to_fit_temperatures = {
+        "MOF-801": 45,
+        "KMF-1": 25,
+        "CAU-23": 25,
+        "MIL-160": 20,
+        "MOF-303": 25,
+        "CAU-10H": 25,
+        "Al-Fum": 25,
+        "MIP-200": 30
+    }
+
+    mof_to_color = dict(zip(mofs, sns.color_palette("hls", len(mofs))))
+    return (
+        mof_to_color,
+        mof_to_data_temperatures,
+        mof_to_fit_temperatures,
+        mofs,
+    )
 
 
 @app.cell
@@ -235,7 +255,6 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
             plt.figure()
             plt.title('water adsorption isotherms')
             plt.xlabel(axis_labels['pressure'])
-            plt.xticks(np.linspace(0, 1, 11))
             plt.ylabel(axis_labels['adsorption'])
             for temperature in self.data_temperatures:
                 # read ads isotherm data
@@ -297,21 +316,16 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures):
+def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
     mof = MOFWaterAds(
         # name of MOF crystal structure
         "MOF-801", 
         # temperature [°C]
-        45, 
+        mof_to_fit_temperatures["MOF-801"], 
         # list of temperatures for which we have data [°C]
         mof_to_data_temperatures["MOF-801"]
     )
     return (mof,)
-
-
-@app.cell
-def _():
-    return
 
 
 @app.cell
@@ -320,12 +334,6 @@ def _(mof):
         # temperature [°C]
         45
     )
-    return
-
-
-@app.cell
-def _(mof):
-    mof._read_ads_data(45)["P/P_0"].is_monotonic_increasing
     return
 
 
@@ -389,15 +397,8 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures):
-    _mof = MOFWaterAds(
-        # name of MOF crystal structure
-        "KMF-1", 
-        # temperature [°C]
-        25, 
-        # list of temperatures for which we have data [°C]
-        mof_to_data_temperatures["KMF-1"]
-    )
+def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
+    _mof = MOFWaterAds("KMF-1", mof_to_fit_temperatures["KMF-1"], mof_to_data_temperatures["KMF-1"])
     _mof.viz_adsorption_isotherms()
     return
 
@@ -409,15 +410,8 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures):
-    _mof = MOFWaterAds(
-        # name of MOF crystal structure
-        "CAU-23", 
-        # temperature [°C]
-        25, 
-        # list of temperatures for which we have data [°C]
-        mof_to_data_temperatures["CAU-23"]
-    )
+def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
+    _mof = MOFWaterAds("CAU-23", mof_to_fit_temperatures["CAU-23"], mof_to_data_temperatures["CAU-23"])
     _mof.viz_adsorption_isotherms()
     return
 
@@ -429,15 +423,8 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures):
-    _mof = MOFWaterAds(
-        # name of MOF crystal structure
-        "MIL-160", 
-        # temperature [°C]
-        20, 
-        # list of temperatures for which we have data [°C]
-        mof_to_data_temperatures["MIL-160"]
-    )
+def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
+    _mof = MOFWaterAds("MIL-160", mof_to_fit_temperatures["MIL-160"], mof_to_data_temperatures["MIL-160"])
     _mof.viz_adsorption_isotherms()
     return
 
@@ -449,35 +436,21 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures):
-    _mof = MOFWaterAds(
-        # name of MOF crystal structure
-        "MOF-303", 
-        # temperature [°C]
-        25, 
-        # list of temperatures for which we have data [°C]
-        mof_to_data_temperatures["MOF-303"]
-    )
+def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
+    _mof = MOFWaterAds("MOF-303", mof_to_fit_temperatures["MOF-303"], mof_to_data_temperatures["MOF-303"])
     _mof.viz_adsorption_isotherms(incl_predictions=True)
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md("""## CAU-10H""")
     return
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures):
-    _mof = MOFWaterAds(
-        # name of MOF crystal structure
-        "CAU-10H", 
-        # temperature [°C]
-        25, 
-        # list of temperatures for which we have data [°C]
-        mof_to_data_temperatures["CAU-10H"]
-    )
+def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
+    _mof = MOFWaterAds("CAU-10H", mof_to_fit_temperatures["CAU-10H"], mof_to_data_temperatures["CAU-10H"])
     _mof.viz_adsorption_isotherms(incl_predictions=True)
     return
 
@@ -489,15 +462,8 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures):
-    _mof = MOFWaterAds(
-        # name of MOF crystal structure
-        "Al-Fum", 
-        # temperature [°C]
-        25, 
-        # list of temperatures for which we have data [°C]
-        mof_to_data_temperatures["Al-Fum"]
-    )
+def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
+    _mof = MOFWaterAds("Al-Fum", mof_to_fit_temperatures["Al-Fum"], mof_to_data_temperatures["Al-Fum"])
     _mof.viz_adsorption_isotherms(incl_predictions=True)
     return
 
@@ -509,16 +475,55 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures):
-    _mof = MOFWaterAds(
-        # name of MOF crystal structure
-        "MIP-200", 
-        # temperature [°C]
-        30, 
-        # list of temperatures for which we have data [°C]
-        mof_to_data_temperatures["MIP-200"]
-    )
+def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
+    _mof = MOFWaterAds("MIP-200", mof_to_fit_temperatures["MIP-200"], mof_to_data_temperatures["MIP-200"])
     _mof.viz_adsorption_isotherms(incl_predictions=True)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+        ## 🪟 viz all room-temperature isotherms on one plot
+
+        (not all data are at 25 degrees C, so we just plot predictions.)
+        """
+    )
+    return
+
+
+@app.cell
+def _(
+    MOFWaterAds,
+    axis_labels,
+    mof_to_color,
+    mof_to_data_temperatures,
+    mof_to_fit_temperatures,
+    np,
+    plt,
+):
+    def viz_all_predicted_adsorption_isotherms(temperature, mofs):
+        fig = plt.Figure()
+        plt.xlabel(axis_labels["pressure"])
+        plt.ylabel(axis_labels["adsorption"])
+
+        p_ovr_p0s = np.linspace(0, 1, 100)[1:]
+        for mof in mofs:
+            _mof = MOFWaterAds(mof, mof_to_fit_temperatures[mof], mof_to_data_temperatures[mof])
+            plt.plot(
+                p_ovr_p0s, [_mof.predict_water_adsorption(temperature, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
+                color=mof_to_color[mof], linewidth=3, label=mof
+            )
+        plt.title("T = {}$^\circ$C".format(temperature))
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.show()
+    return (viz_all_predicted_adsorption_isotherms,)
+
+
+@app.cell
+def _(mofs, viz_all_predicted_adsorption_isotherms):
+    viz_all_predicted_adsorption_isotherms(25, mofs)
     return
 
 
