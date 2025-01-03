@@ -55,8 +55,8 @@ def _(mo):
         | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2B | ✅ |  |
         | CAU-23 | [link](https://www.nature.com/articles/s41467-019-10960-0)| plot digitized from Fig 2 | ✅ |
         | MIL-160 | [link](https://onlinelibrary.wiley.com/doi/10.1002/adma.201502418) | plot digitized from SI Fig. 4 |✅ |
-        | Y-shp-MOF-5 | [link](https://pubs.acs.org/doi/10.1021/jacs.7b04132) | plot digitized from Fig. 2 | |
-        | MOF-303 | [link](https://www.science.org/doi/10.1126/science.abj0890) | plot digitized from Fig. 1 A | |
+        | Y-shp-MOF-5 | [link](https://pubs.acs.org/doi/10.1021/jacs.7b04132) | plot digitized from Fig. 2 | ❌ | too much hystersis
+        | MOF-303 | [link](https://www.science.org/doi/10.1126/science.abj0890) | plot digitized from Fig. 1 A |✅ |
         | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 | |
         | Al-Fum | [link](https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d) | plot digitized from Fig. 3 | |
 
@@ -77,14 +77,15 @@ def _(mo):
 @app.cell
 def _():
     # list of MOFs
-    mofs = ["MOF-801", "KMF-1", "CAU-23", "MIL-160"]
+    mofs = ["MOF-801", "KMF-1", "CAU-23", "MIL-160", "MOF-303"]
 
     # maps MOF to the temperatures at which we possess adsorption data
     mof_to_data_temperatures = {
         "MOF-801": [15, 25, 45, 65, 85],
         "KMF-1": [25],
         "CAU-23": [25],
-        "MIL-160": [20]
+        "MIL-160": [20],
+        "MOF-303": [25]
     }
     return mof_to_data_temperatures, mofs
 
@@ -162,7 +163,10 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
                 ads_data['P/P_0'] = ads_data['RH[%]']
 
             # Gets rid of the Humidity column, now we're using P/P_0
-            ads_data = ads_data.drop(columns=['RH[%]']) 
+            ads_data = ads_data.drop(columns=['RH[%]'])
+
+            # sort by pressure
+            ads_data.sort_values(by="P/P_0", inplace=True, ignore_index=True)
 
             # Polanyi adsorption potential for every P/P_0 in the data set
             ads_data["A [kJ/mol]"] = -R * (temperature + 273.15) * np.log(ads_data['P/P_0'])
@@ -174,8 +178,11 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
             data = self._read_ads_data(self.fit_temperature)
 
             # sort rows by A values
-            data = data.sort_values('A [kJ/mol]')
-
+            data.sort_values(by='A [kJ/mol]', inplace=True, ignore_index=True)
+            
+            assert data['Water Uptake [kg kg-1]'].is_monotonic_decreasing
+            assert data["A [kJ/mol]"].is_monotonic_increasing
+            
             # monotonic interpolation of water ads. as a function of Polanyi potential A.
             self.ads_of_A = interpolate.PchipInterpolator(
                 data['A [kJ/mol]'].values, data['Water Uptake [kg kg-1]'].values
@@ -299,9 +306,8 @@ def _(MOFWaterAds, mof_to_data_temperatures):
     return (mof,)
 
 
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""retreive the raw data from an adsorption isotherm measurement.""")
+@app.cell
+def _():
     return
 
 
@@ -311,6 +317,12 @@ def _(mof):
         # temperature [°C]
         45
     )
+    return
+
+
+@app.cell
+def _(mof):
+    mof._read_ads_data(45)["P/P_0"].is_monotonic_increasing
     return
 
 
@@ -424,6 +436,26 @@ def _(MOFWaterAds, mof_to_data_temperatures):
         mof_to_data_temperatures["MIL-160"]
     )
     _mof.viz_adsorption_isotherms()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""## MOF-303""")
+    return
+
+
+@app.cell
+def _(MOFWaterAds, mof_to_data_temperatures):
+    _mof = MOFWaterAds(
+        # name of MOF crystal structure
+        "MOF-303", 
+        # temperature [°C]
+        25, 
+        # list of temperatures for which we have data [°C]
+        mof_to_data_temperatures["MOF-303"]
+    )
+    _mof.viz_adsorption_isotherms(incl_predictions=True)
     return
 
 
