@@ -542,104 +542,9 @@ def _(mo):
 
 
 @app.cell
-def _(pd):
-    class Weather2:
-        def __init__(self, month, verbose=True):
-            self.month = month
-            if verbose:
-                print("month: ", month)
-            self._read_raw_weather_data(verbose)
-
-        def _read_raw_weather_data(self, verbose):
-            filename = f'data/Weather_noclouds/PHX_{self.month:02}_2023.csv'#.format(self.month)
-            raw_data = pd.read_csv(filename)
-            self.raw_data = raw_data
-
-            if verbose:
-                print("\tmean T:", raw_data["Temperature"].mean())
-                print("\tmean RH:", raw_data["Relative Humidity"].mean())
-
-
-        # def process_weather_data(self):
-
-        #     raw_data = self.read_raw_weather_data()
-        #     processing_data = raw_data
-
-        #     processing_data['Date'] = pd.to_datetime(processing_data['DateTime']).dt.date
-        #     processing_data['Time'] = pd.to_datetime(processing_data['DateTime']).dt.time
-        #     processing_data = processing_data.drop('DateTime',axis=1)
-        #     processing_data['Temperature'] = (processing_data['Temperature'] - 32) * 5/9
-        #     processing_data['Relative Humidity'] = processing_data['Relative Humidity'] / 100
-        #     processing_data = processing_data.drop('Dew Point',axis=1)
-
-        #     processed_data = processing_data
-        #     return processed_data
-
-
-        # def night_conditions(self, day):
-
-        #     date = '2023-{}-{}'.format(self.month,day)
-
-        #     month_data = self.process_weather_data()
-        #     month_data["Date"] = month_data["Date"].astype(str)
-        #     date_data = month_data[month_data["Date"] == date]
-        #     date_data = date_data.reset_index(drop=True)
-
-        #     night_conditions = date_data[date_data["Temperature"] == date_data["Temperature"].max()]
-        #     temp = night_conditions['Temperature'].astype(float)
-        #     RH = night_conditions["Relative Humidity"].astype(float)
-        #     time = night_conditions['Time']
-
-        #     return temp, RH, time
-
-
-
-        # def day_conditions(self, day):
-        #     # uses solar flux somehow
-
-        #     date = '2023-{}-{}'.format(self.month,day)
-
-        #     month_data = self.process_weather_data()
-        #     month_data["Date"] = month_data["Date"].astype(str)
-        #     date_data = month_data[month_data["Date"] == date]
-        #     date_data = date_data.reset_index(drop=True)
-
-        #     day_conditions = date_data[date_data["Temperature"] == date_data["Temperature"].max()]
-        #     day_conditions = day_conditions.reset_index(drop=True)
-        #     temp = day_conditions['Temperature']
-        #     temp = temp[0]
-        #     RH = day_conditions["Relative Humidity"]
-        #     RH = RH[0]
-        #     time = day_conditions['Time']
-        #     time = time[0]
-
-        #     return print(type(time))
-
-        # def monthly_weather():
-
-        #     month_data = self.process_weather_data()
-        #     day_list = month_data['Date'].unique()
-
-        #     results = [
-        #         {"day": day, "temperature": day_temp, "humidity": day_RH, "time": day_time}
-        #         for day in day_list
-        #         for day_temp, day_RH, day_time in [self.day_conditions(day)]]
-
-        #     monthly_conditions = pd.DataFrame(results)
-
-        #     return monthly_conditions
-    return (Weather2,)
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
 def _(np, pd, plt):
     class Weather:
-        def __init__(self, month, day_min=1, day_max=33, action_to_hour={'har': 16, 'ads': 5}):
+        def __init__(self, month, day_min=1, day_max=33, action_to_hour={'har': 15, 'ads': 5}):
             self.month = month
             print(f"reading 2024 Tucson weather for {month}/{day_min} - {month}/{day_max}.")
             print("\tnighttime adsorption hr: ", action_to_hour["ads"])
@@ -654,6 +559,8 @@ def _(np, pd, plt):
 
             self.action_to_hour = action_to_hour
             self._day_night_data()
+
+            self.action_to_color = {'har': "orange", "ads": "black"}
 
         def _read_raw_weather_data(self):
             filename = "data/Tuscon_NOAA/CRNH0203-2024-AZ_Tucson_11_W.txt"
@@ -679,31 +586,32 @@ def _(np, pd, plt):
             self.raw_data["time"] = [pd.Timedelta(hours=h) for h in self.raw_data["LST_TIME"] / 100]
             self.raw_data["datetime"] = self.raw_data["date"] + self.raw_data["time"]
 
-        def viz_timeseries(self, col):
-            real_col = {
-                "T": "T_HR_AVG",
-                "RH": "RH_HR_AVG",
-                "surface T": "SUR_TEMP"
-            }
-
-            col_to_label = {
-                'T': "temperature [$^\circ$C]",
-                'RH': "relative humidity (%)",
-                'surface T': "surface temperature [$^\circ$C]"
-            }
-
-            plt.figure()
-            plt.plot(self.raw_data["datetime"], self.raw_data[real_col[col]])
-
-            action_to_color = {'ads': "black", 'har': "orange"}
-            for action in ["ads", "har"]:
-                plt.scatter(
-                    self.wdata[action]["datetime"], self.wdata[action][real_col[col]],
-                    marker="*", label=action, color=action_to_color[action], zorder=10
-                )
+        def viz_timeseries(self):
+            fig, axs = plt.subplots(2, 1, sharex=True)
             plt.xticks(rotation=90, ha='right')
-            plt.ylabel(col_to_label[col])
-            plt.legend()
+
+            # T
+            axs[0].plot(self.raw_data["datetime"], self.raw_data["T_HR_AVG"], label="air", color="C0")
+            axs[0].plot(self.raw_data["datetime"], self.raw_data["SUR_TEMP"], label="surface", color="C1")
+            axs[0].set_ylabel("T [°C]")
+            axs[0].legend(bbox_to_anchor=(1.05, 1))
+            axs[0].scatter(
+                self.wdata["ads"]["datetime"], self.wdata["ads"]["T_HR_AVG"],
+                marker="*", color=self.action_to_color["ads"], zorder=10
+            ) # nighttime air temperature
+            axs[0].scatter(
+                self.wdata["har"]["datetime"], self.wdata["har"]["SUR_TEMP"],
+                marker="*", color=self.action_to_color["har"], zorder=10
+            ) # daytime surface temperature
+
+            # RH
+            axs[1].plot(self.raw_data["datetime"], self.raw_data["RH_HR_AVG"], color="C2")
+            axs[1].set_ylabel("RH [%]")
+            axs[1].scatter(
+                self.wdata["ads"]["datetime"], self.wdata["ads"]["RH_HR_AVG"],
+                marker="*", color=self.action_to_color["ads"], zorder=10
+            ) # nighttime RH
+            
             plt.show()
 
         def viz_daynight_data(self):
@@ -711,33 +619,35 @@ def _(np, pd, plt):
             plt.xticks(rotation=90, ha='right')
 
             # T
-            axs[0].set_ylabel("T [$^\circ$C]")
+            axs[0].set_ylabel("T [°C]")
             axs[0].plot(
                 self.daynight_wdata["datetime"], self.daynight_wdata["ads_T_HR_AVG"], 
-                marker="s", label="night air", color="black"
+                marker="s", label="night air", color=self.action_to_color["ads"]
             )
             axs[0].plot(
                 self.daynight_wdata["datetime"], self.daynight_wdata["har_T_HR_AVG"], 
-                marker="s", label="day air", color="orange", linestyle="--"
+                marker="s", label="day air", color=self.action_to_color["har"], linestyle="--"
             )
             axs[0].plot(
                 self.daynight_wdata["datetime"], self.daynight_wdata["har_SUR_TEMP"], 
-                marker="s", label="day surface", color="orange"
+                marker="o", label="day surface", color=self.action_to_color["har"]
             )
-            axs[0].legend()
+            axs[0].legend(bbox_to_anchor=(1.05, 1))
 
             # RH
             axs[1].set_ylabel("RH [%]")
-            axs[1].set_ylim([0, 100])
+            # axs[1].set_ylim([0, 100])
             axs[1].plot(
                 self.daynight_wdata["datetime"], self.daynight_wdata["ads_RH_HR_AVG"], 
-                marker="s", label="night air", color="black"
+                marker="s", label="night air", color=self.action_to_color["ads"]
             )
             axs[1].plot(
                 self.daynight_wdata["datetime"], self.daynight_wdata["har_RH_HR_AVG"], 
-                marker="s", label="day air", color="orange"
+                marker="s", label="day air", color=self.action_to_color["har"]
             )
-            axs[1].legend()
+            axs[1].legend(bbox_to_anchor=(1.05, 1))
+
+            axs[0].set_title("Tucson, AZ")
             
             plt.show()
             
@@ -783,6 +693,12 @@ def _(np, pd, plt):
 
 
 @app.cell
+def _():
+    print("warning: gotta recalcualte RH for the surface, which is hotter.")
+    return
+
+
+@app.cell
 def _(weather):
     weather.viz_daynight_data()
     return
@@ -809,19 +725,7 @@ def _(weather):
 
 @app.cell
 def _(weather):
-    weather.viz_timeseries("T")
-    return
-
-
-@app.cell
-def _(weather):
-    weather.viz_timeseries("RH")
-    return
-
-
-@app.cell
-def _(weather):
-    weather.viz_timeseries("surface T")
+    weather.viz_timeseries()
     return
 
 
