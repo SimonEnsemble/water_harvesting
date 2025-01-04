@@ -533,18 +533,9 @@ def _(mo):
         r"""
         # ⛅ weather data
 
-        📍 Pheonix, Arizona. Sky Harbor International Airport.
+        📍 Tuscon, Arizona. in 2024.
 
-        want weather data frame to look like:
-
-        | date | T_night | RH_night | T_day | RH_day | solar_flux day |
-        | ---  | --- | --- | ---  | --- |--- |
-
-        where each row is a unique day.
-
-        how is night and day determined? a given time? or the min/max? let's go with min/max.
-
-        weather data needs more processing if you want to calculate solar flux, as file changes
+        ::rivet-icons:data::  [NOAA](https://www.ncei.noaa.gov/access/crn/qcdatasets.html) `Hourly02` data set.
         """
     )
     return
@@ -641,34 +632,21 @@ def _(pd):
 
 
 @app.cell
-def _():
-    # weather = Weather(6)
-    # weather.raw_data
-    # weather.day_conditions('05')
-    return
-
-
-@app.cell
-def _():
-    col_names = open("data/Tuscon_NOAA/headers.txt", "r").readlines()[1].split()
-    col_names
-    return (col_names,)
-
-
-@app.cell
 def _(np, pd, plt):
     class Weather:
-        def __init__(self, month, verbose=True):
+        def __init__(self, month, day_min=1, day_max=33, daytime_harvest_hr=16, nighttime_adsorption_hr=3):
             self.month = month
-            if verbose:
-                print("reading 2024 Tucson weather for month ", month, ".")
+            print(f"reading 2024 Tucson weather for {month}/{day_min} - {month}/{day_max}.")
+            print(f"\tnighttime adsorption hr: {nighttime_adsorption_hr}")
+            print(f"\tdaytime harvest hr: {daytime_harvest_hr}")
             self._read_raw_weather_data()
-            self._process_date_and_filter()
+            self._process_datetime_and_filter(range(day_min, day_max))
+            self._minimalize_data()
             self._filter_missing()
 
-            # if verbose:
-                # print("mean T: ", self.)
-            
+            self.daytime_harvest_hr = daytime_harvest_hr
+            self.nighttime_adsorption_hr = nighttime_adsorption_hr
+            self._day_night_data()
 
         def _read_raw_weather_data(self):
             filename = "data/Tuscon_NOAA/CRNH0203-2024-AZ_Tucson_11_W.txt"
@@ -679,7 +657,7 @@ def _(np, pd, plt):
             
             self.wdata = wdata
 
-        def _process_date_and_filter(self):
+        def _process_datetime_and_filter(self, days):
             # convert to pandas datetime
             self.wdata["date"] = pd.to_datetime(self.wdata["LST_DATE"])
 
@@ -687,11 +665,50 @@ def _(np, pd, plt):
             self.wdata = self.wdata[self.wdata["date"].dt.year == 2024] # keep only 2024
             self.wdata = self.wdata[self.wdata["date"].dt.month == self.month] # keep only 2024
 
+            # day filter
+            self.wdata = self.wdata[[d in days for d in self.wdata["date"].dt.day]]
+
+            # get hours
+            self.wdata["time"] = [pd.Timedelta(hours=h) for h in self.wdata["LST_TIME"] / 100]
+            self.wdata["datetime"] = self.wdata["date"] + self.wdata["time"]
+
         def viz_timeseries(self, col):
+            real_col = {
+                "T": "T_HR_AVG",
+                "RH": "RH_HR_AVG",
+                "surface T": "SUR_TEMP"
+            }
+            
+            col_to_label = {
+                'T': "temperature [$^\circ$C]",
+                'RH': "relative humidity (%)",
+                'surface T': "surface temperature [$^\circ$C]"
+            }
+            
             plt.figure()
-            plt.scatter(self.wdata["date"], self.wdata[col])
-            plt.xticks(rotation=45, ha='right')
+            plt.plot(self.wdata["datetime"], self.wdata[real_col[col]])
+            plt.scatter(
+                self.day_data["datetime"], self.day_data[real_col[col]],
+                marker="*", label="day", color="orange"
+            )
+            plt.scatter(
+                self.night_data["datetime"], self.night_data[real_col[col]],
+                marker="*", label="night", color="black"
+            )
+            plt.xticks(rotation=90, ha='right')
+            plt.ylabel(col_to_label[col])
+            plt.legend()
             plt.show()
+
+        def _minimalize_data(self):
+            self.wdata = self.wdata[["datetime", "T_HR_AVG", "RH_HR_AVG", "SUR_TEMP"]]
+
+        def _day_night_data(self):
+            self.day_data = self.wdata[self.wdata["datetime"].dt.hour == self.daytime_harvest_hr]
+            self.night_data = self.wdata[self.wdata["datetime"].dt.hour == self.nighttime_adsorption_hr]
+
+            assert self.wdata["datetime"].dt.day.nunique() == self.day_data.shape[0]
+            assert self.day_data.shape[0] == self.night_data.shape[0]
 
         def _filter_missing(self):
             print("# missing: ", np.sum(self.wdata["T_HR_AVG"] > 0.0))
@@ -701,19 +718,13 @@ def _(np, pd, plt):
 
 @app.cell
 def _(weather):
-    weather.viz_timeseries
+    weather.day_data
     return
 
 
 @app.cell
-def _(Weather):
-    weather = Weather(6)
-    weather.viz_timeseries("T_HR_AVG")
-    return (weather,)
-
-
-@app.cell
-def _():
+def _(weather):
+    weather.night_data
     return
 
 
@@ -724,112 +735,28 @@ def _(weather):
 
 
 @app.cell
-def _(plt, weather):
-    plt.hist(weather[["day"]])
+def _(Weather):
+    weather = Weather(6, day_max=10)
+    weather.wdata
+    return (weather,)
+
+
+@app.cell
+def _(weather):
+    weather.viz_timeseries("T")
     return
 
 
 @app.cell
 def _(weather):
-    weather.columns
-    return
-
-
-@app.cell
-def _():
-    # wdata = pd.read_csv(
-    #     "data/Tuscon_NOAA/CRNH0203-2024-AZ_Tucson_11_W.txt", 
-    #     sep=",", names=col_names, dtype={'LST_DATE': str}
-    # )
-
-    # # deal with the date
-    # wdata["year"]  = wdata["LST_DATE"].transform(lambda s: int(s[0:4]))
-    # wdata = wdata[wdata["year"] == 2024] # keep only 2024
-
-    # wdata["month"] = wdata["LST_DATE"].transform(lambda s: int(s[4:6]))
-    # wdata["day"]   = wdata["LST_DATE"].transform(lambda s: int(s[6:8]))
-    # wdata
-    return
-
-
-@app.cell
-def _(wdata):
-    wdata["day"].unique()
-    return
-
-
-@app.cell
-def _(wdata):
-    wdata
-    return
-
-
-@app.cell
-def _(wdata):
-    wdata["year"].unique()
-    return
-
-
-@app.cell
-def _(wdata):
-    wdata["LST_DATE"].transform(lambda s: s[4:6]).unique()
-    return
-
-
-@app.cell
-def _(wdata):
-    wdata["month"].unique()
-    return
-
-
-@app.cell
-def _(wdata):
-    wdata["LST_TIME"]
-    return
-
-
-@app.cell
-def _(wdata):
-    wdata["LST_DATE"].iloc[0]
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _(d):
-    d["LST_DATE"].transform(lambda s: s[0:4])
-    return
-
-
-@app.cell
-def _(d):
-    d["SUR_TEMP"]
+    weather.viz_timeseries("RH")
     return
 
 
 @app.cell
 def _(weather):
-    weather.day_conditions('05')
+    weather.viz_timeseries("surface T")
     return
-
-
-@app.cell
-def _():
-    return
-
-
-app._unparsable_cell(
-    r"""
-    def weather_data(month):
-        # reads in raw weather data
-        # processes it so each row is a unique day.
-    """,
-    name="_"
-)
 
 
 @app.cell
