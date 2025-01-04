@@ -356,7 +356,7 @@ def _(mof):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md("""visualize the adsorption isotherm data (dots) and Polanyi theory fit (lines).""")
+    mo.md("""::emojione:eye:: visualize the adsorption isotherm data (dots) and Polanyi theory fit (lines).""")
     return
 
 
@@ -392,14 +392,30 @@ def _(mof):
 
 @app.cell(hide_code=True)
 def _(mo):
+    mo.md("""## ::fxemoji:eye:: viz water adsorption in all of the MOFs""")
+    return
+
+
+@app.cell
+def _(
+    MOFWaterAds,
+    mof_to_data_temperatures,
+    mof_to_fit_temperatures,
+    mofs,
+):
+    mof_water_ads = {mof: MOFWaterAds(mof, mof_to_fit_temperatures[mof], mof_to_data_temperatures[mof]) for mof in mofs}
+    return (mof_water_ads,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
     mo.md(r"""### KMF-1""")
     return
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
-    _mof = MOFWaterAds("KMF-1", mof_to_fit_temperatures["KMF-1"], mof_to_data_temperatures["KMF-1"])
-    _mof.viz_adsorption_isotherms()
+def _(mof_water_ads):
+    mof_water_ads["KMF-1"].viz_adsorption_isotherms()
     return
 
 
@@ -410,9 +426,8 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
-    _mof = MOFWaterAds("CAU-23", mof_to_fit_temperatures["CAU-23"], mof_to_data_temperatures["CAU-23"])
-    _mof.viz_adsorption_isotherms()
+def _(mof_water_ads):
+    mof_water_ads["CAU-23"].viz_adsorption_isotherms()
     return
 
 
@@ -423,9 +438,8 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
-    _mof = MOFWaterAds("MIL-160", mof_to_fit_temperatures["MIL-160"], mof_to_data_temperatures["MIL-160"])
-    _mof.viz_adsorption_isotherms()
+def _(mof_water_ads):
+    mof_water_ads["MIL-160"].viz_adsorption_isotherms()
     return
 
 
@@ -436,9 +450,8 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
-    _mof = MOFWaterAds("MOF-303", mof_to_fit_temperatures["MOF-303"], mof_to_data_temperatures["MOF-303"])
-    _mof.viz_adsorption_isotherms(incl_predictions=True)
+def _(mof_water_ads):
+    mof_water_ads["MOF-303"].viz_adsorption_isotherms()
     return
 
 
@@ -449,9 +462,8 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
-    _mof = MOFWaterAds("CAU-10H", mof_to_fit_temperatures["CAU-10H"], mof_to_data_temperatures["CAU-10H"])
-    _mof.viz_adsorption_isotherms(incl_predictions=True)
+def _(mof_water_ads):
+    mof_water_ads["CAU-10H"].viz_adsorption_isotherms()
     return
 
 
@@ -462,9 +474,8 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
-    _mof = MOFWaterAds("Al-Fum", mof_to_fit_temperatures["Al-Fum"], mof_to_data_temperatures["Al-Fum"])
-    _mof.viz_adsorption_isotherms(incl_predictions=True)
+def _(mof_water_ads):
+    mof_water_ads["Al-Fum"].viz_adsorption_isotherms()
     return
 
 
@@ -475,9 +486,8 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
-    _mof = MOFWaterAds("MIP-200", mof_to_fit_temperatures["MIP-200"], mof_to_data_temperatures["MIP-200"])
-    _mof.viz_adsorption_isotherms(incl_predictions=True)
+def _(mof_water_ads):
+    mof_water_ads["MIP-200"].viz_adsorption_isotherms()
     return
 
 
@@ -494,25 +504,16 @@ def _(mo):
 
 
 @app.cell
-def _(
-    MOFWaterAds,
-    axis_labels,
-    mof_to_color,
-    mof_to_data_temperatures,
-    mof_to_fit_temperatures,
-    np,
-    plt,
-):
-    def viz_all_predicted_adsorption_isotherms(temperature, mofs):
+def _(axis_labels, mof_to_color, mofs, np, plt):
+    def viz_all_predicted_adsorption_isotherms(temperature, mof_water_ads):
         fig = plt.Figure()
         plt.xlabel(axis_labels["pressure"])
         plt.ylabel(axis_labels["adsorption"])
 
         p_ovr_p0s = np.linspace(0, 1, 100)[1:]
         for mof in mofs:
-            _mof = MOFWaterAds(mof, mof_to_fit_temperatures[mof], mof_to_data_temperatures[mof])
             plt.plot(
-                p_ovr_p0s, [_mof.predict_water_adsorption(temperature, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
+                p_ovr_p0s, [mof_water_ads[mof].predict_water_adsorption(temperature, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
                 color=mof_to_color[mof], linewidth=3, label=mof
             )
         plt.title("T = {}$^\circ$C".format(temperature))
@@ -522,12 +523,12 @@ def _(
 
 
 @app.cell
-def _(mofs, viz_all_predicted_adsorption_isotherms):
-    viz_all_predicted_adsorption_isotherms(25, mofs)
+def _(mof_water_ads, viz_all_predicted_adsorption_isotherms):
+    viz_all_predicted_adsorption_isotherms(25, mof_water_ads)
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
@@ -699,6 +700,19 @@ def _():
 
 
 @app.cell
+def _(Weather):
+    weather = Weather(6, day_max=30)
+    weather.raw_data
+    return (weather,)
+
+
+@app.cell
+def _(weather):
+    weather.viz_timeseries()
+    return
+
+
+@app.cell
 def _(weather):
     weather.viz_daynight_data()
     return
@@ -707,25 +721,6 @@ def _(weather):
 @app.cell
 def _(weather):
     weather.daynight_wdata
-    return
-
-
-@app.cell
-def _(Weather):
-    weather = Weather(6, day_max=10)
-    weather.raw_data
-    return (weather,)
-
-
-@app.cell
-def _(weather):
-    weather.daynight_wdata
-    return
-
-
-@app.cell
-def _(weather):
-    weather.viz_timeseries()
     return
 
 
