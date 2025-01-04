@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.6"
+__generated_with = "0.10.9"
 app = marimo.App(width="medium")
 
 
@@ -202,10 +202,10 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
 
             # sort rows by A values
             data.sort_values(by='A [kJ/mol]', inplace=True, ignore_index=True)
-            
+
             assert data['Water Uptake [kg kg-1]'].is_monotonic_decreasing
             assert data["A [kJ/mol]"].is_monotonic_increasing
-            
+
             # monotonic interpolation of water ads. as a function of Polanyi potential A.
             self.ads_of_A = interpolate.PchipInterpolator(
                 data['A [kJ/mol]'].values, data['Water Uptake [kg kg-1]'].values
@@ -551,91 +551,264 @@ def _(mo):
 
 
 @app.cell
-def _(pd, self):
-    class Weather:
-        def __init__(self, month):
+def _(pd):
+    class Weather2:
+        def __init__(self, month, verbose=True):
             self.month = month
+            if verbose:
+                print("month: ", month)
+            self._read_raw_weather_data(verbose)
 
-        def read_raw_weather_data(self):
-            weather_filename = 'data/Weather_noclouds/PHX_{}_2023.csv'.format(self.month)
-            raw_data = pd.read_csv(weather_filename)
-            self.raw_weather_data = raw_data
-        def process_weather_data(self):
+        def _read_raw_weather_data(self, verbose):
+            filename = f'data/Weather_noclouds/PHX_{self.month:02}_2023.csv'#.format(self.month)
+            raw_data = pd.read_csv(filename)
+            self.raw_data = raw_data
 
-            raw_data = self.read_raw_weather_data()
-            processing_data = raw_data
+            if verbose:
+                print("\tmean T:", raw_data["Temperature"].mean())
+                print("\tmean RH:", raw_data["Relative Humidity"].mean())
+            
+            
+        # def process_weather_data(self):
 
-            processing_data['Date'] = pd.to_datetime(processing_data['DateTime']).dt.date
-            processing_data['Time'] = pd.to_datetime(processing_data['DateTime']).dt.time
-            processing_data = processing_data.drop('DateTime',axis=1)
-            processing_data['Temperature'] = (processing_data['Temperature'] - 32) * 5/9
-            processing_data['Relative Humidity'] = processing_data['Relative Humidity'] / 100
-            processing_data = processing_data.drop('Dew Point',axis=1)
+        #     raw_data = self.read_raw_weather_data()
+        #     processing_data = raw_data
 
-            processed_data = processing_data
-            return processed_data
+        #     processing_data['Date'] = pd.to_datetime(processing_data['DateTime']).dt.date
+        #     processing_data['Time'] = pd.to_datetime(processing_data['DateTime']).dt.time
+        #     processing_data = processing_data.drop('DateTime',axis=1)
+        #     processing_data['Temperature'] = (processing_data['Temperature'] - 32) * 5/9
+        #     processing_data['Relative Humidity'] = processing_data['Relative Humidity'] / 100
+        #     processing_data = processing_data.drop('Dew Point',axis=1)
 
-
-        def night_conditions(self, day):
-
-            date = '2023-{}-{}'.format(self.month,day)
-
-            month_data = self.process_weather_data()
-            month_data["Date"] = month_data["Date"].astype(str)
-            date_data = month_data[month_data["Date"] == date]
-            date_data = date_data.reset_index(drop=True)
-
-            night_conditions = date_data[date_data["Temperature"] == date_data["Temperature"].max()]
-            temp = night_conditions['Temperature'].astype(float)
-            RH = night_conditions["Relative Humidity"].astype(float)
-            time = night_conditions['Time']
-
-            return temp, RH, time
+        #     processed_data = processing_data
+        #     return processed_data
 
 
+        # def night_conditions(self, day):
 
-        def day_conditions(self, day):
-            # uses solar flux somehow
+        #     date = '2023-{}-{}'.format(self.month,day)
 
-            date = '2023-{}-{}'.format(self.month,day)
+        #     month_data = self.process_weather_data()
+        #     month_data["Date"] = month_data["Date"].astype(str)
+        #     date_data = month_data[month_data["Date"] == date]
+        #     date_data = date_data.reset_index(drop=True)
 
-            month_data = self.process_weather_data()
-            month_data["Date"] = month_data["Date"].astype(str)
-            date_data = month_data[month_data["Date"] == date]
-            date_data = date_data.reset_index(drop=True)
+        #     night_conditions = date_data[date_data["Temperature"] == date_data["Temperature"].max()]
+        #     temp = night_conditions['Temperature'].astype(float)
+        #     RH = night_conditions["Relative Humidity"].astype(float)
+        #     time = night_conditions['Time']
 
-            day_conditions = date_data[date_data["Temperature"] == date_data["Temperature"].max()]
-            day_conditions = day_conditions.reset_index(drop=True)
-            temp = day_conditions['Temperature']
-            temp = temp[0]
-            RH = day_conditions["Relative Humidity"]
-            RH = RH[0]
-            time = day_conditions['Time']
-            time = time[0]
+        #     return temp, RH, time
 
-            return print(type(time))
 
-        def monthly_weather():
 
-            month_data = self.process_weather_data()
-            day_list = month_data['Date'].unique()
+        # def day_conditions(self, day):
+        #     # uses solar flux somehow
 
-            results = [
-                {"day": day, "temperature": day_temp, "humidity": day_RH, "time": day_time}
-                for day in day_list
-                for day_temp, day_RH, day_time in [self.day_conditions(day)]]
+        #     date = '2023-{}-{}'.format(self.month,day)
 
-            monthly_conditions = pd.DataFrame(results)
+        #     month_data = self.process_weather_data()
+        #     month_data["Date"] = month_data["Date"].astype(str)
+        #     date_data = month_data[month_data["Date"] == date]
+        #     date_data = date_data.reset_index(drop=True)
 
-            return monthly_conditions
+        #     day_conditions = date_data[date_data["Temperature"] == date_data["Temperature"].max()]
+        #     day_conditions = day_conditions.reset_index(drop=True)
+        #     temp = day_conditions['Temperature']
+        #     temp = temp[0]
+        #     RH = day_conditions["Relative Humidity"]
+        #     RH = RH[0]
+        #     time = day_conditions['Time']
+        #     time = time[0]
+
+        #     return print(type(time))
+
+        # def monthly_weather():
+
+        #     month_data = self.process_weather_data()
+        #     day_list = month_data['Date'].unique()
+
+        #     results = [
+        #         {"day": day, "temperature": day_temp, "humidity": day_RH, "time": day_time}
+        #         for day in day_list
+        #         for day_temp, day_RH, day_time in [self.day_conditions(day)]]
+
+        #     monthly_conditions = pd.DataFrame(results)
+
+        #     return monthly_conditions
+    return (Weather2,)
+
+
+@app.cell
+def _():
+    # weather = Weather(6)
+    # weather.raw_data
+    # weather.day_conditions('05')
+    return
+
+
+@app.cell
+def _():
+    col_names = open("data/Tuscon_NOAA/headers.txt", "r").readlines()[1].split()
+    col_names
+    return (col_names,)
+
+
+@app.cell
+def _(np, pd, plt):
+    class Weather:
+        def __init__(self, month, verbose=True):
+            self.month = month
+            if verbose:
+                print("reading 2024 Tucson weather for month ", month, ".")
+            self._read_raw_weather_data()
+            self._process_date_and_filter()
+            self._filter_missing()
+
+            # if verbose:
+                # print("mean T: ", self.)
+            
+
+        def _read_raw_weather_data(self):
+            filename = "data/Tuscon_NOAA/CRNH0203-2024-AZ_Tucson_11_W.txt"
+
+            col_names = open("data/Tuscon_NOAA/headers.txt", "r").readlines()[1].split()
+            
+            wdata = pd.read_csv(filename, sep=",", names=col_names, dtype={'LST_DATE': str})
+            
+            self.wdata = wdata
+
+        def _process_date_and_filter(self):
+            # convert to pandas datetime
+            self.wdata["date"] = pd.to_datetime(self.wdata["LST_DATE"])
+
+            # keep only self.month of 2024
+            self.wdata = self.wdata[self.wdata["date"].dt.year == 2024] # keep only 2024
+            self.wdata = self.wdata[self.wdata["date"].dt.month == self.month] # keep only 2024
+
+        def viz_timeseries(self, col):
+            plt.figure()
+            plt.scatter(self.wdata["date"], self.wdata[col])
+            plt.xticks(rotation=45, ha='right')
+            plt.show()
+
+        def _filter_missing(self):
+            print("# missing: ", np.sum(self.wdata["T_HR_AVG"] > 0.0))
+            # self.wdata = self.wdata[self.wdata["T_HR_AVG"] > 0.0]
     return (Weather,)
 
 
 @app.cell
+def _(weather):
+    weather.viz_timeseries
+    return
+
+
+@app.cell
 def _(Weather):
-    weather = Weather('06')
-    weather.day_conditions('05')
+    weather = Weather(6)
+    weather.viz_timeseries("T_HR_AVG")
     return (weather,)
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(weather):
+    weather.wdata.columns
+    return
+
+
+@app.cell
+def _(plt, weather):
+    plt.hist(weather[["day"]])
+    return
+
+
+@app.cell
+def _(weather):
+    weather.columns
+    return
+
+
+@app.cell
+def _():
+    # wdata = pd.read_csv(
+    #     "data/Tuscon_NOAA/CRNH0203-2024-AZ_Tucson_11_W.txt", 
+    #     sep=",", names=col_names, dtype={'LST_DATE': str}
+    # )
+
+    # # deal with the date
+    # wdata["year"]  = wdata["LST_DATE"].transform(lambda s: int(s[0:4]))
+    # wdata = wdata[wdata["year"] == 2024] # keep only 2024
+
+    # wdata["month"] = wdata["LST_DATE"].transform(lambda s: int(s[4:6]))
+    # wdata["day"]   = wdata["LST_DATE"].transform(lambda s: int(s[6:8]))
+    # wdata
+    return
+
+
+@app.cell
+def _(wdata):
+    wdata["day"].unique()
+    return
+
+
+@app.cell
+def _(wdata):
+    wdata
+    return
+
+
+@app.cell
+def _(wdata):
+    wdata["year"].unique()
+    return
+
+
+@app.cell
+def _(wdata):
+    wdata["LST_DATE"].transform(lambda s: s[4:6]).unique()
+    return
+
+
+@app.cell
+def _(wdata):
+    wdata["month"].unique()
+    return
+
+
+@app.cell
+def _(wdata):
+    wdata["LST_TIME"]
+    return
+
+
+@app.cell
+def _(wdata):
+    wdata["LST_DATE"].iloc[0]
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(d):
+    d["LST_DATE"].transform(lambda s: s[0:4])
+    return
+
+
+@app.cell
+def _(d):
+    d["SUR_TEMP"]
+    return
 
 
 @app.cell
