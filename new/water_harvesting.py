@@ -634,7 +634,7 @@ def _(pd):
 @app.cell
 def _(np, pd, plt):
     class Weather:
-        def __init__(self, month, day_min=1, day_max=33, daytime_harvest_hr=16, nighttime_adsorption_hr=3):
+        def __init__(self, month, day_min=1, day_max=33, daytime_harvest_hr=16, nighttime_adsorption_hr=5):
             self.month = month
             print(f"reading 2024 Tucson weather for {month}/{day_min} - {month}/{day_max}.")
             print(f"\tnighttime adsorption hr: {nighttime_adsorption_hr}")
@@ -689,11 +689,11 @@ def _(np, pd, plt):
             plt.plot(self.wdata["datetime"], self.wdata[real_col[col]])
             plt.scatter(
                 self.day_data["datetime"], self.day_data[real_col[col]],
-                marker="*", label="day", color="orange"
+                marker="*", label="day", color="orange", zorder=10
             )
             plt.scatter(
                 self.night_data["datetime"], self.night_data[real_col[col]],
-                marker="*", label="night", color="black"
+                marker="*", label="night", color="black", zorder=10
             )
             plt.xticks(rotation=90, ha='right')
             plt.ylabel(col_to_label[col])
