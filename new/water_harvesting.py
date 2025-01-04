@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.9"
+__generated_with = "0.10.6"
 app = marimo.App(width="medium")
 
 
@@ -558,8 +558,8 @@ def _(pd):
             if verbose:
                 print("\tmean T:", raw_data["Temperature"].mean())
                 print("\tmean RH:", raw_data["Relative Humidity"].mean())
-            
-            
+
+
         # def process_weather_data(self):
 
         #     raw_data = self.read_raw_weather_data()
@@ -632,45 +632,52 @@ def _(pd):
 
 
 @app.cell
+def _():
+    return
+
+
+@app.cell
 def _(np, pd, plt):
     class Weather:
-        def __init__(self, month, day_min=1, day_max=33, daytime_harvest_hr=16, nighttime_adsorption_hr=5):
+        def __init__(self, month, day_min=1, day_max=33, action_to_hour={'harvest': 16, 'adsorption': 5}):
             self.month = month
             print(f"reading 2024 Tucson weather for {month}/{day_min} - {month}/{day_max}.")
-            print(f"\tnighttime adsorption hr: {nighttime_adsorption_hr}")
-            print(f"\tdaytime harvest hr: {daytime_harvest_hr}")
+            print("\tnighttime adsorption hr: ", action_to_hour["adsorption"])
+            print("\tdaytime harvest hr: ", action_to_hour["harvest"])
+
+            self.relevant_weather_cols = ["T_HR_AVG", "RH_HR_AVG", "SUR_TEMP"]
+            
             self._read_raw_weather_data()
             self._process_datetime_and_filter(range(day_min, day_max))
-            self._minimalize_data()
+            self._minimalize_raw_data()
             self._filter_missing()
 
-            self.daytime_harvest_hr = daytime_harvest_hr
-            self.nighttime_adsorption_hr = nighttime_adsorption_hr
+            self.action_to_hour = action_to_hour
             self._day_night_data()
 
         def _read_raw_weather_data(self):
             filename = "data/Tuscon_NOAA/CRNH0203-2024-AZ_Tucson_11_W.txt"
 
             col_names = open("data/Tuscon_NOAA/headers.txt", "r").readlines()[1].split()
-            
-            wdata = pd.read_csv(filename, sep=",", names=col_names, dtype={'LST_DATE': str})
-            
-            self.wdata = wdata
+
+            raw_data = pd.read_csv(filename, sep=",", names=col_names, dtype={'LST_DATE': str})
+
+            self.raw_data = raw_data
 
         def _process_datetime_and_filter(self, days):
             # convert to pandas datetime
-            self.wdata["date"] = pd.to_datetime(self.wdata["LST_DATE"])
+            self.raw_data["date"] = pd.to_datetime(self.raw_data["LST_DATE"])
 
             # keep only self.month of 2024
-            self.wdata = self.wdata[self.wdata["date"].dt.year == 2024] # keep only 2024
-            self.wdata = self.wdata[self.wdata["date"].dt.month == self.month] # keep only 2024
+            self.raw_data = self.raw_data[self.raw_data["date"].dt.year == 2024] # keep only 2024
+            self.raw_data = self.raw_data[self.raw_data["date"].dt.month == self.month] # keep only 2024
 
             # day filter
-            self.wdata = self.wdata[[d in days for d in self.wdata["date"].dt.day]]
+            self.raw_data = self.raw_data[[d in days for d in self.raw_data["date"].dt.day]]
 
             # get hours
-            self.wdata["time"] = [pd.Timedelta(hours=h) for h in self.wdata["LST_TIME"] / 100]
-            self.wdata["datetime"] = self.wdata["date"] + self.wdata["time"]
+            self.raw_data["time"] = [pd.Timedelta(hours=h) for h in self.raw_data["LST_TIME"] / 100]
+            self.raw_data["datetime"] = self.raw_data["date"] + self.raw_data["time"]
 
         def viz_timeseries(self, col):
             real_col = {
@@ -678,67 +685,88 @@ def _(np, pd, plt):
                 "RH": "RH_HR_AVG",
                 "surface T": "SUR_TEMP"
             }
-            
+
             col_to_label = {
                 'T': "temperature [$^\circ$C]",
                 'RH': "relative humidity (%)",
                 'surface T': "surface temperature [$^\circ$C]"
             }
-            
+
             plt.figure()
-            plt.plot(self.wdata["datetime"], self.wdata[real_col[col]])
-            plt.scatter(
-                self.day_data["datetime"], self.day_data[real_col[col]],
-                marker="*", label="day", color="orange", zorder=10
-            )
-            plt.scatter(
-                self.night_data["datetime"], self.night_data[real_col[col]],
-                marker="*", label="night", color="black", zorder=10
-            )
+            plt.plot(self.raw_data["datetime"], self.raw_data[real_col[col]])
+
+            action_to_color = {'adsorption': "black", 'harvest': "orange"}
+            for action in ["adsorption", "harvest"]:
+                plt.scatter(
+                    self.wdata[action]["datetime"], self.wdata[action][real_col[col]],
+                    marker="*", label=action, color=action_to_color[action], zorder=10
+                )
             plt.xticks(rotation=90, ha='right')
             plt.ylabel(col_to_label[col])
             plt.legend()
             plt.show()
 
-        def _minimalize_data(self):
-            self.wdata = self.wdata[["datetime", "T_HR_AVG", "RH_HR_AVG", "SUR_TEMP"]]
+        def viz_daynight_data(self):
+            plt.figure()
+
+        def _minimalize_raw_data(self):
+            self.raw_data = self.raw_data[["datetime"] + self.relevant_weather_cols]
 
         def _day_night_data(self):
-            self.day_data = self.wdata[self.wdata["datetime"].dt.hour == self.daytime_harvest_hr]
-            self.night_data = self.wdata[self.wdata["datetime"].dt.hour == self.nighttime_adsorption_hr]
+            # get separate day and night data frames with precise time stamp
+            # useful for checking and for plotting as a time series with all of the data
+            self.wdata = dict()
+            for action in ["harvest", "adsorption"]:
+                self.wdata[action] = self.raw_data[self.raw_data["datetime"].dt.hour == self.action_to_hour[action]]
+                self.wdata[action] = self.raw_data[self.raw_data["datetime"].dt.hour == self.action_to_hour[action]]
+                assert self.raw_data["datetime"].dt.day.nunique() == self.wdata[action].shape[0]
 
-            assert self.wdata["datetime"].dt.day.nunique() == self.day_data.shape[0]
-            assert self.day_data.shape[0] == self.night_data.shape[0]
+            ###
+            #   create abstract data frame that removes details of the time
+            #   each row is a day-night cycle
+            ###
+            reduced_wdata = dict()
+            for action in ["harvest", "adsorption"]:
+                reduced_wdata[action] = self.wdata[action].rename(
+                    columns={col: action + "_" + col for col in self.relevant_weather_cols}
+                )
+                reduced_wdata[action]["datetime"] = reduced_wdata[action]["datetime"].dt.normalize()
+                
+            self.daynight_wdata = pd.merge(
+                reduced_wdata["adsorption"], reduced_wdata["harvest"],
+                on="datetime", how="outer"
+            )
+
+            self.daynight_wdata.sort_values(by="datetime", inplace=True)
+
+            # sequence day by day
+            days = self.daynight_wdata.loc[1:, "datetime"].dt.day.values
+            days_shifted_by_one = self.daynight_wdata.loc[0:self.daynight_wdata.index[-2], "datetime"].dt.day.values
+            assert np.all((days - days_shifted_by_one) == 1)
 
         def _filter_missing(self):
-            print("# missing: ", np.sum(self.wdata["T_HR_AVG"] > 0.0))
+            print("# missing: ", np.sum(self.raw_data["T_HR_AVG"] > 0.0))
             # self.wdata = self.wdata[self.wdata["T_HR_AVG"] > 0.0]
     return (Weather,)
 
 
 @app.cell
 def _(weather):
-    weather.day_data
-    return
-
-
-@app.cell
-def _(weather):
-    weather.night_data
-    return
-
-
-@app.cell
-def _(weather):
-    weather.wdata.columns
+    weather.daynight_wdata
     return
 
 
 @app.cell
 def _(Weather):
     weather = Weather(6, day_max=10)
-    weather.wdata
+    weather.raw_data
     return (weather,)
+
+
+@app.cell
+def _(weather):
+    weather.daynight_wdata
+    return
 
 
 @app.cell
