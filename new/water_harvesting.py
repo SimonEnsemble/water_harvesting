@@ -19,7 +19,7 @@ def _():
 
     # matplotlib styles
     from aquarel import load_theme
-    theme = load_theme("scientific").set_font(size=18)
+    theme = load_theme("scientific").set_font(size=16)
     theme.apply()
     return (
         dataclass,
@@ -639,11 +639,11 @@ def _():
 @app.cell
 def _(np, pd, plt):
     class Weather:
-        def __init__(self, month, day_min=1, day_max=33, action_to_hour={'harvest': 16, 'adsorption': 5}):
+        def __init__(self, month, day_min=1, day_max=33, action_to_hour={'har': 16, 'ads': 5}):
             self.month = month
             print(f"reading 2024 Tucson weather for {month}/{day_min} - {month}/{day_max}.")
-            print("\tnighttime adsorption hr: ", action_to_hour["adsorption"])
-            print("\tdaytime harvest hr: ", action_to_hour["harvest"])
+            print("\tnighttime adsorption hr: ", action_to_hour["ads"])
+            print("\tdaytime harvest hr: ", action_to_hour["har"])
 
             self.relevant_weather_cols = ["T_HR_AVG", "RH_HR_AVG", "SUR_TEMP"]
             
@@ -695,8 +695,8 @@ def _(np, pd, plt):
             plt.figure()
             plt.plot(self.raw_data["datetime"], self.raw_data[real_col[col]])
 
-            action_to_color = {'adsorption': "black", 'harvest': "orange"}
-            for action in ["adsorption", "harvest"]:
+            action_to_color = {'ads': "black", 'har': "orange"}
+            for action in ["ads", "har"]:
                 plt.scatter(
                     self.wdata[action]["datetime"], self.wdata[action][real_col[col]],
                     marker="*", label=action, color=action_to_color[action], zorder=10
@@ -707,8 +707,40 @@ def _(np, pd, plt):
             plt.show()
 
         def viz_daynight_data(self):
-            plt.figure()
+            fig, axs = plt.subplots(2, 1, sharex=True)
+            plt.xticks(rotation=90, ha='right')
 
+            # T
+            axs[0].set_ylabel("T [$^\circ$C]")
+            axs[0].plot(
+                self.daynight_wdata["datetime"], self.daynight_wdata["ads_T_HR_AVG"], 
+                marker="s", label="night air", color="black"
+            )
+            axs[0].plot(
+                self.daynight_wdata["datetime"], self.daynight_wdata["har_T_HR_AVG"], 
+                marker="s", label="day air", color="orange", linestyle="--"
+            )
+            axs[0].plot(
+                self.daynight_wdata["datetime"], self.daynight_wdata["har_SUR_TEMP"], 
+                marker="s", label="day surface", color="orange"
+            )
+            axs[0].legend()
+
+            # RH
+            axs[1].set_ylabel("RH [%]")
+            axs[1].set_ylim([0, 100])
+            axs[1].plot(
+                self.daynight_wdata["datetime"], self.daynight_wdata["ads_RH_HR_AVG"], 
+                marker="s", label="night air", color="black"
+            )
+            axs[1].plot(
+                self.daynight_wdata["datetime"], self.daynight_wdata["har_RH_HR_AVG"], 
+                marker="s", label="day air", color="orange"
+            )
+            axs[1].legend()
+            
+            plt.show()
+            
         def _minimalize_raw_data(self):
             self.raw_data = self.raw_data[["datetime"] + self.relevant_weather_cols]
 
@@ -716,7 +748,7 @@ def _(np, pd, plt):
             # get separate day and night data frames with precise time stamp
             # useful for checking and for plotting as a time series with all of the data
             self.wdata = dict()
-            for action in ["harvest", "adsorption"]:
+            for action in ["har", "ads"]:
                 self.wdata[action] = self.raw_data[self.raw_data["datetime"].dt.hour == self.action_to_hour[action]]
                 self.wdata[action] = self.raw_data[self.raw_data["datetime"].dt.hour == self.action_to_hour[action]]
                 assert self.raw_data["datetime"].dt.day.nunique() == self.wdata[action].shape[0]
@@ -726,14 +758,14 @@ def _(np, pd, plt):
             #   each row is a day-night cycle
             ###
             reduced_wdata = dict()
-            for action in ["harvest", "adsorption"]:
+            for action in ["har", "ads"]:
                 reduced_wdata[action] = self.wdata[action].rename(
                     columns={col: action + "_" + col for col in self.relevant_weather_cols}
                 )
                 reduced_wdata[action]["datetime"] = reduced_wdata[action]["datetime"].dt.normalize()
                 
             self.daynight_wdata = pd.merge(
-                reduced_wdata["adsorption"], reduced_wdata["harvest"],
+                reduced_wdata["ads"], reduced_wdata["har"],
                 on="datetime", how="outer"
             )
 
@@ -748,6 +780,12 @@ def _(np, pd, plt):
             print("# missing: ", np.sum(self.raw_data["T_HR_AVG"] > 0.0))
             # self.wdata = self.wdata[self.wdata["T_HR_AVG"] > 0.0]
     return (Weather,)
+
+
+@app.cell
+def _(weather):
+    weather.viz_daynight_data()
+    return
 
 
 @app.cell
@@ -787,7 +825,7 @@ def _(weather):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""# 🚿 modeling water delivery of each MOF on each day""")
     return
