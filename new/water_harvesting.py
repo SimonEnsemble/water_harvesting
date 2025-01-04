@@ -543,6 +543,13 @@ def _(mo):
 
 
 @app.cell
+def _():
+    col_names = open("data/Tuscon_NOAA/headers.txt", "r").readlines()[1].split()
+    col_names
+    return (col_names,)
+
+
+@app.cell
 def _(np, pd, plt):
     class Weather:
         def __init__(self, month, day_min=1, day_max=33, action_to_hour={'har': 15, 'ads': 5}):
@@ -589,7 +596,7 @@ def _(np, pd, plt):
 
         def viz_timeseries(self):
             fig, axs = plt.subplots(2, 1, sharex=True)
-            plt.xticks(rotation=90, ha='right')
+            plt.xticks(rotation=90, ha='center')
 
             # T
             axs[0].plot(self.raw_data["datetime"], self.raw_data["T_HR_AVG"], label="air", color="C0")
@@ -617,7 +624,7 @@ def _(np, pd, plt):
 
         def viz_daynight_data(self):
             fig, axs = plt.subplots(2, 1, sharex=True)
-            plt.xticks(rotation=90, ha='right')
+            plt.xticks(rotation=90, ha='center')
 
             # T
             axs[0].set_ylabel("T [°C]")
@@ -701,7 +708,7 @@ def _():
 
 @app.cell
 def _(Weather):
-    weather = Weather(6, day_max=30)
+    weather = Weather(6, day_min=10, day_max=30)
     weather.raw_data
     return (weather,)
 
@@ -732,6 +739,115 @@ def _(mo):
 
 @app.cell
 def _():
+    def predict_water_delivery(weather, mof_water_ads):
+        # begin with weather data
+        water_del = weather.daynight_wdata.copy()
+
+        # predict water delivery of each MOF
+        for mof in mof_water_ads.keys():
+            # function giving water ads in this MOF at a given T [deg C] and RH [%]
+            water_ads = lambda t, rh : mof_water_ads[mof].predict_water_adsorption(t, rh / 100.0)
+            
+            # compute water uptake at nighttime adsorption conditions
+            ads_col_name = mof + " night ads [g/g]"
+            water_del[ads_col_name] = water_del.apply(
+                lambda day: water_ads(day["ads_T_HR_AVG"], day["ads_RH_HR_AVG"]), axis=1
+            )
+
+            # compute water uptake held during day at desorption conditions
+            des_col_name = mof + " day ads [g/g]"
+            water_del[des_col_name] = water_del.apply(
+                lambda day: water_ads(day["har_SUR_TEMP"], day["har_RH_HR_AVG"]), axis=1
+            )
+
+            # compute water delivery
+            del_col_name = mof + " water delivery [g/g]"
+            water_del[del_col_name] = water_del[ads_col_name] - water_del[des_col_name]
+
+            # handle case where water delivery is zero
+            for i in range(water_del.shape[0]):
+                if water_del.loc[i, del_col_name] < 0.0:
+                    date_w_0 = water_del.loc[i, "datetime"]
+                    print(f"warning: water delivery zero for {mof} on {date_w_0}!")
+            water_del.loc[water_del[del_col_name] < 0.0, del_col_name] = 0.0
+
+        return water_del
+    return (predict_water_delivery,)
+
+
+@app.cell
+def _():
+    def trim_water_delivery_data(water_del, mof):
+        ids_keep = [col for col in water_del.columns if mof in col]
+        return water_del[ids_keep]
+    return (trim_water_delivery_data,)
+
+
+@app.cell
+def _(trim_water_delivery_data, water_del):
+    trim_water_delivery_data(water_del, "KMF-1")
+    return
+
+
+@app.cell
+def _(mof_water_ads, predict_water_delivery, weather):
+    water_del = predict_water_delivery(weather, mof_water_ads)
+    water_del
+    return (water_del,)
+
+
+@app.cell
+def _(mof_to_color, plt):
+    def viz_water_delivery_time_series(water_del):
+        # infer mof list
+        mofs = [col.split()[0] for col in water_del.columns if "delivery" in col]
+        
+        plt.figure()
+        plt.ylabel("water delivery [g/g]")
+        plt.xticks(rotation=90, ha='center')
+        for mof in mofs:
+            plt.plot(water_del["datetime"], water_del[mof + " water delivery [g/g]"], marker="s", 
+                     color=mof_to_color[mof], label=mof)
+        plt.legend(bbox_to_anchor=(1.05, 1))
+        plt.show()
+    return (viz_water_delivery_time_series,)
+
+
+@app.cell
+def _(mof_to_color, plt):
+    def viz_water_delivery_time_series_mof(water_del, mof):    
+        plt.figure()
+        plt.ylabel("water adsorption [g/g]")
+        plt.xticks(rotation=90, ha='center')
+        for i in range(water_del.shape[0]):
+            plt.vlines(
+                water_del["datetime"], water_del[mof + " day ads [g/g]"], water_del[mof + " night ads [g/g]"], 
+                     color=mof_to_color[mof]
+            )
+            plt.scatter(
+                water_del["datetime"], water_del[mof + " day ads [g/g]"], color=mof_to_color[mof], marker="o", 
+                label="day" if i == 0 else ""
+            )
+            plt.scatter(
+                water_del["datetime"], water_del[mof + " night ads [g/g]"], color=mof_to_color[mof], marker="s",
+                label="night" if i == 0 else ""
+            )
+        plt.ylim(ymin=0)
+        plt.legend()
+        plt.title(mof)
+        plt.show()
+    return (viz_water_delivery_time_series_mof,)
+
+
+@app.cell
+def _(viz_water_delivery_time_series_mof, water_del):
+    viz_water_delivery_time_series_mof(water_del, "KMF-1")
+    return
+
+
+@app.cell
+def _(viz_water_delivery_time_series, water_del):
+    viz_water_delivery_time_series(water_del)
     return
 
 
