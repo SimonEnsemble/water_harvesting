@@ -910,13 +910,25 @@ def _(mofs, optimize_harvester, water_del):
 
 
 @app.cell
-def _(mof_to_color, mofs, opt_mass_of_mofs, plt):
-    fig = plt.figure()
-    plt.bar(range(len(mofs)), opt_mass_of_mofs, color=[mof_to_color[mof] for mof in mofs])
-    plt.xticks(range(len(mofs)), mofs, rotation=90)
-    plt.ylabel("mass [kg]")
-    plt.show()
-    return (fig,)
+def _(mof_to_color, plt):
+    def viz_optimal_harvester(mofs, opt_mass_of_mofs):
+        fig = plt.figure()
+        plt.bar(range(len(mofs)), opt_mass_of_mofs, color=[mof_to_color[mof] for mof in mofs])
+        plt.xticks(range(len(mofs)), mofs, rotation=90)
+        plt.ylabel("mass [kg]")
+        plt.show()
+    return (viz_optimal_harvester,)
+
+
+@app.cell
+def _(mofs, opt_mass_of_mofs, viz_optimal_harvester):
+    viz_optimal_harvester(mofs, opt_mass_of_mofs)
+    return
+
+
+@app.cell
+def _():
+    return
 
 
 if __name__ == "__main__":
