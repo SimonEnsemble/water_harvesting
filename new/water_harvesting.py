@@ -16,6 +16,7 @@ def _():
     from dataclasses import dataclass
     import seaborn as sns
     import os
+    import warnings
 
     # matplotlib styles
     from aquarel import load_theme
@@ -34,6 +35,7 @@ def _():
         plt,
         sns,
         theme,
+        warnings,
     )
 
 
@@ -51,7 +53,7 @@ def _(mo):
 
         ::icon-park:data:: experimental water adsorption data in MOFs; raw data stored in `data/`.
 
-        | MOF | original reference | data extraction method | confirmed data fidelity | notes | Ashlee's list |
+        | MOF | original reference | data extrd_or_n method | confirmed data fidelity | notes | Ashlee's list |
         | -- | -- | -- | -- | -- | -- |
         | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6a | ✅ | | ✅ |
         | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2B | ✅ |  |✅ |
@@ -348,7 +350,7 @@ def _(mof):
     mof.predict_water_adsorption(
         # temperature [°C]
         25.0,
-        # RH (fraction)
+        # RH (frd_or_n)
         0.2
     ) # g H20 / g MOF
     return
@@ -543,32 +545,25 @@ def _(mo):
 
 
 @app.cell
-def _():
-    col_names = open("data/Tuscon_NOAA/headers.txt", "r").readlines()[1].split()
-    col_names
-    return (col_names,)
-
-
-@app.cell
 def _(np, pd, plt):
     class Weather:
-        def __init__(self, month, day_min=1, day_max=33, action_to_hour={'har': 15, 'ads': 5}):
+        def __init__(self, month, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
             self.month = month
             print(f"reading 2024 Tucson weather for {month}/{day_min} - {month}/{day_max}.")
-            print("\tnighttime adsorption hr: ", action_to_hour["ads"])
-            print("\tdaytime harvest hr: ", action_to_hour["har"])
+            print("\tnighttime adsorption hr: ", time_to_hour["night"])
+            print("\tdaytime harvest hr: ", time_to_hour["day"])
 
             self.relevant_weather_cols = ["T_HR_AVG", "RH_HR_AVG", "SUR_TEMP"]
             
             self._read_raw_weather_data()
-            self._process_datetime_and_filter(range(day_min, day_max))
+            self._process_datetime_and_filter(range(day_min, day_max+1))
             self._minimalize_raw_data()
             self._filter_missing()
 
-            self.action_to_hour = action_to_hour
+            self.time_to_hour = time_to_hour
             self._day_night_data()
 
-            self.action_to_color = {'har': "orange", "ads": "black"}
+            self.time_to_color = {'day': "orange", "night": "black"}
 
         def _read_raw_weather_data(self):
             filename = "data/Tuscon_NOAA/CRNH0203-2024-AZ_Tucson_11_W.txt"
@@ -604,20 +599,20 @@ def _(np, pd, plt):
             axs[0].set_ylabel("T [°C]")
             axs[0].legend(bbox_to_anchor=(1.05, 1))
             axs[0].scatter(
-                self.wdata["ads"]["datetime"], self.wdata["ads"]["T_HR_AVG"],
-                marker="*", color=self.action_to_color["ads"], zorder=10
+                self.wdata["night"]["datetime"], self.wdata["night"]["T_HR_AVG"],
+                marker="*", color=self.time_to_color["night"], zorder=10
             ) # nighttime air temperature
             axs[0].scatter(
-                self.wdata["har"]["datetime"], self.wdata["har"]["SUR_TEMP"],
-                marker="*", color=self.action_to_color["har"], zorder=10
+                self.wdata["day"]["datetime"], self.wdata["day"]["SUR_TEMP"],
+                marker="*", color=self.time_to_color["day"], zorder=10
             ) # daytime surface temperature
 
             # RH
             axs[1].plot(self.raw_data["datetime"], self.raw_data["RH_HR_AVG"], color="C2")
             axs[1].set_ylabel("RH [%]")
             axs[1].scatter(
-                self.wdata["ads"]["datetime"], self.wdata["ads"]["RH_HR_AVG"],
-                marker="*", color=self.action_to_color["ads"], zorder=10
+                self.wdata["night"]["datetime"], self.wdata["night"]["RH_HR_AVG"],
+                marker="*", color=self.time_to_color["night"], zorder=10
             ) # nighttime RH
             
             plt.show()
@@ -629,16 +624,16 @@ def _(np, pd, plt):
             # T
             axs[0].set_ylabel("T [°C]")
             axs[0].plot(
-                self.daynight_wdata["datetime"], self.daynight_wdata["ads_T_HR_AVG"], 
-                marker="s", label="night air", color=self.action_to_color["ads"]
+                self.daynight_wdata["datetime"], self.daynight_wdata["night_T_HR_AVG"], 
+                marker="s", label="night air", color=self.time_to_color["night"]
             )
             axs[0].plot(
-                self.daynight_wdata["datetime"], self.daynight_wdata["har_T_HR_AVG"], 
-                marker="s", label="day air", color=self.action_to_color["har"], linestyle="--"
+                self.daynight_wdata["datetime"], self.daynight_wdata["day_T_HR_AVG"], 
+                marker="s", label="day air", color=self.time_to_color["day"], linestyle="--"
             )
             axs[0].plot(
-                self.daynight_wdata["datetime"], self.daynight_wdata["har_SUR_TEMP"], 
-                marker="o", label="day surface", color=self.action_to_color["har"]
+                self.daynight_wdata["datetime"], self.daynight_wdata["night_SUR_TEMP"], 
+                marker="o", label="day surface", color=self.time_to_color["day"]
             )
             axs[0].legend(bbox_to_anchor=(1.05, 1))
 
@@ -646,12 +641,12 @@ def _(np, pd, plt):
             axs[1].set_ylabel("RH [%]")
             # axs[1].set_ylim([0, 100])
             axs[1].plot(
-                self.daynight_wdata["datetime"], self.daynight_wdata["ads_RH_HR_AVG"], 
-                marker="s", label="night air", color=self.action_to_color["ads"]
+                self.daynight_wdata["datetime"], self.daynight_wdata["night_RH_HR_AVG"], 
+                marker="s", label="night air", color=self.time_to_color["night"]
             )
             axs[1].plot(
-                self.daynight_wdata["datetime"], self.daynight_wdata["har_RH_HR_AVG"], 
-                marker="s", label="day air", color=self.action_to_color["har"]
+                self.daynight_wdata["datetime"], self.daynight_wdata["day_RH_HR_AVG"], 
+                marker="s", label="day air", color=self.time_to_color["day"]
             )
             axs[1].legend(bbox_to_anchor=(1.05, 1))
 
@@ -666,24 +661,24 @@ def _(np, pd, plt):
             # get separate day and night data frames with precise time stamp
             # useful for checking and for plotting as a time series with all of the data
             self.wdata = dict()
-            for action in ["har", "ads"]:
-                self.wdata[action] = self.raw_data[self.raw_data["datetime"].dt.hour == self.action_to_hour[action]]
-                self.wdata[action] = self.raw_data[self.raw_data["datetime"].dt.hour == self.action_to_hour[action]]
-                assert self.raw_data["datetime"].dt.day.nunique() == self.wdata[action].shape[0]
+            for time in ["day", "night"]:
+                self.wdata[time] = self.raw_data[self.raw_data["datetime"].dt.hour == self.time_to_hour[time]]
+                self.wdata[time] = self.raw_data[self.raw_data["datetime"].dt.hour == self.time_to_hour[time]]
+                assert self.raw_data["datetime"].dt.day.nunique() == self.wdata[time].shape[0]
 
             ###
             #   create abstract data frame that removes details of the time
             #   each row is a day-night cycle
             ###
             reduced_wdata = dict()
-            for action in ["har", "ads"]:
-                reduced_wdata[action] = self.wdata[action].rename(
-                    columns={col: action + "_" + col for col in self.relevant_weather_cols}
+            for time in ["day", "night"]:
+                reduced_wdata[time] = self.wdata[time].rename(
+                    columns={col: time + "_" + col for col in self.relevant_weather_cols}
                 )
-                reduced_wdata[action]["datetime"] = reduced_wdata[action]["datetime"].dt.normalize()
+                reduced_wdata[time]["datetime"] = reduced_wdata[time]["datetime"].dt.normalize()
                 
             self.daynight_wdata = pd.merge(
-                reduced_wdata["ads"], reduced_wdata["har"],
+                reduced_wdata["night"], reduced_wdata["day"],
                 on="datetime", how="outer"
             )
 
@@ -701,14 +696,14 @@ def _(np, pd, plt):
 
 
 @app.cell
-def _():
-    print("warning: gotta recalcualte RH for the surface, which is hotter.")
+def _(warnings):
+    warnings.warn("gotta recalcualte RH for the surface, which is hotter!")
     return
 
 
 @app.cell
 def _(Weather):
-    weather = Weather(6, day_min=10, day_max=30)
+    weather = Weather(7, day_min=1, day_max=10)
     weather.raw_data
     return (weather,)
 
@@ -738,7 +733,7 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(warnings):
     def predict_water_delivery(weather, mof_water_ads):
         # begin with weather data
         water_del = weather.daynight_wdata.copy()
@@ -751,13 +746,13 @@ def _():
             # compute water uptake at nighttime adsorption conditions
             ads_col_name = mof + " night ads [g/g]"
             water_del[ads_col_name] = water_del.apply(
-                lambda day: water_ads(day["ads_T_HR_AVG"], day["ads_RH_HR_AVG"]), axis=1
+                lambda day: water_ads(day["night_T_HR_AVG"], day["night_RH_HR_AVG"]), axis=1
             )
 
             # compute water uptake held during day at desorption conditions
             des_col_name = mof + " day ads [g/g]"
             water_del[des_col_name] = water_del.apply(
-                lambda day: water_ads(day["har_SUR_TEMP"], day["har_RH_HR_AVG"]), axis=1
+                lambda day: water_ads(day["day_SUR_TEMP"], day["day_RH_HR_AVG"]), axis=1
             )
 
             # compute water delivery
@@ -768,7 +763,7 @@ def _():
             for i in range(water_del.shape[0]):
                 if water_del.loc[i, del_col_name] < 0.0:
                     date_w_0 = water_del.loc[i, "datetime"]
-                    print(f"warning: water delivery zero for {mof} on {date_w_0}!")
+                    warnings.warn(f"warning: water delivery zero for {mof} on {date_w_0}!")
             water_del.loc[water_del[del_col_name] < 0.0, del_col_name] = 0.0
 
         return water_del
@@ -853,13 +848,75 @@ def _(viz_water_delivery_time_series, water_del):
 
 @app.cell
 def _(mo):
-    mo.md(r"""# optimizing the water harvester""")
+    mo.md(
+        r"""
+        # optimizing the water harvester
+
+        💡 minimize the mass of the water harvester by tuning the mass of each MOF used, subject to drinking water constraints on each day.
+        """
+    )
     return
 
 
 @app.cell
-def _():
-    return
+def _(linprog, np, warnings):
+    def optimize_harvester(mofs, water_del, daily_water_demand):
+        n_mofs = len(mofs)
+        n_days = water_del.shape[0]
+
+        print(f"optimizing water harvest for {n_mofs} MOFs over {n_days} days...")
+        
+        # create W matrix
+        #  w[d, m] = water delivery [g/g] on day d by MOF m
+        water_del_cols = [mof + " water delivery [g/g]" for mof in mofs]
+        W = water_del.loc[:, water_del_cols]
+
+        # create cost vector
+        cost_per_mass = np.ones(len(mofs))
+
+        # solve linear program
+        # decision variable: mass_of_mofs
+        res = linprog(
+            # objective to minimize = cost_per_mass * mass_of_mofs
+            cost_per_mass,
+            # daily drinking water constraint W * mass_of_mofs >= daily_demand 
+            #    (negative to flip inequality)
+            A_ub=-W, b_ub=[-daily_water_demand for d in range(n_days)],
+            #
+            bounds=(0, None),
+            # solver
+            method='highs'
+        )
+
+        if not res.success:
+            warnings.warn("yikes! failure to solve linear program.")
+            return res
+        else:
+            print("optimization successful.")
+            print("\tmin mass of water harvester: ", res.fun)
+            print("\toptimal composition:")
+            for (m, mof) in enumerate(mofs):
+                print(f"\t\t{mof}: {res.x[m]} kg")
+            
+        return res.x, res.fun
+    return (optimize_harvester,)
+
+
+@app.cell
+def _(mofs, optimize_harvester, water_del):
+    daily_water_demand = 2.0 # kg
+    opt_mass_of_mofs, min_mass = optimize_harvester(mofs, water_del, daily_water_demand)
+    return daily_water_demand, min_mass, opt_mass_of_mofs
+
+
+@app.cell
+def _(mof_to_color, mofs, opt_mass_of_mofs, plt):
+    fig = plt.figure()
+    plt.bar(range(len(mofs)), opt_mass_of_mofs, color=[mof_to_color[mof] for mof in mofs])
+    plt.xticks(range(len(mofs)), mofs, rotation=90)
+    plt.ylabel("mass [kg]")
+    plt.show()
+    return (fig,)
 
 
 if __name__ == "__main__":
