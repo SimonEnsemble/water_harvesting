@@ -534,6 +534,71 @@ def _(mof_water_ads, viz_all_predicted_adsorption_isotherms):
 def _(mo):
     mo.md(
         r"""
+        # 💧 water vapor pressure
+
+        Antoine Equation Parameters from NIST [here](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Mask=4), valid 293 K to 343 K i.e. 20 deg C to 70 deg C, from Gubkov, Fermor, et al., 1964.
+        """
+    )
+    return
+
+
+@app.cell
+def _():
+    # input  T  : deg C
+    # output P* : bar
+    def water_vapor_presssure(T, ignore_range=False):
+        if not ignore_range:
+            if T < 293 - 273.15 or T > 343 - 273.15:
+                raise Exception("outside of temperature range.")
+        # coefficients for the following setup:
+        #  log10(P) = A − (B / (T + C))
+        #     P = vapor pressure (bar)
+        #     T = temperature (K)
+        A = 6.20963
+        B = 2354.731
+        C = 7.559
+        return 10.0 ** (A - B / ((T + 273.15) + C))
+    return (water_vapor_presssure,)
+
+
+@app.cell
+def _(water_vapor_presssure):
+    water_vapor_presssure(100.0, ignore_range=True) # around 1 bar b/c water boils.
+    return
+
+
+@app.cell
+def _(np, plt, water_vapor_presssure):
+    def viz_water_vapor_presssure():
+        Ts = np.linspace(293, 343, 100) - 273.15 # deg C
+        
+        plt.figure()
+        plt.xlabel("T [°C]")
+        plt.ylabel("P* [bar]")
+        plt.plot(Ts, [water_vapor_presssure(T_i) for T_i in Ts], linewidth=3)
+        plt.show()
+        
+    viz_water_vapor_presssure()  
+    return (viz_water_vapor_presssure,)
+
+
+@app.cell
+def _(mo):
+    mo.md(
+        r"""
+        suppose we have air at daytime temperature $T_d$ and relative humidity $h_d$ corresponding to water pressure of $P_d=h P^*(T_d)$ with $p^*(T)$ the saturation pressure of water at temperature $T$.
+
+        then, we heat up this air using the sun to a new, higher temperature $T^\prime$. what is the relative humidity $h^\prime$ of this air?
+
+        """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
         # ⛅ weather data
 
         📍 Tuscon, Arizona. in 2024.
@@ -554,7 +619,7 @@ def _(np, pd, plt):
             print("\tdaytime harvest hr: ", time_to_hour["day"])
 
             self.relevant_weather_cols = ["T_HR_AVG", "RH_HR_AVG", "SUR_TEMP"]
-            
+
             self._read_raw_weather_data()
             self._process_datetime_and_filter(range(day_min, day_max+1))
             self._minimalize_raw_data()
@@ -614,7 +679,7 @@ def _(np, pd, plt):
                 self.wdata["night"]["datetime"], self.wdata["night"]["RH_HR_AVG"],
                 marker="*", color=self.time_to_color["night"], zorder=10
             ) # nighttime RH
-            
+
             plt.show()
 
         def viz_daynight_data(self):
@@ -651,9 +716,9 @@ def _(np, pd, plt):
             axs[1].legend(bbox_to_anchor=(1.05, 1))
 
             axs[0].set_title("Tucson, AZ")
-            
+
             plt.show()
-            
+
         def _minimalize_raw_data(self):
             self.raw_data = self.raw_data[["datetime"] + self.relevant_weather_cols]
 
@@ -676,7 +741,7 @@ def _(np, pd, plt):
                     columns={col: time + "_" + col for col in self.relevant_weather_cols}
                 )
                 reduced_wdata[time]["datetime"] = reduced_wdata[time]["datetime"].dt.normalize()
-                
+
             self.daynight_wdata = pd.merge(
                 reduced_wdata["night"], reduced_wdata["day"],
                 on="datetime", how="outer"
@@ -742,7 +807,7 @@ def _(warnings):
         for mof in mof_water_ads.keys():
             # function giving water ads in this MOF at a given T [deg C] and RH [%]
             water_ads = lambda t, rh : mof_water_ads[mof].predict_water_adsorption(t, rh / 100.0)
-            
+
             # compute water uptake at nighttime adsorption conditions
             ads_col_name = mof + " night ads [g/g]"
             water_del[ads_col_name] = water_del.apply(
@@ -796,7 +861,7 @@ def _(mof_to_color, plt):
     def viz_water_delivery_time_series(water_del):
         # infer mof list
         mofs = [col.split()[0] for col in water_del.columns if "delivery" in col]
-        
+
         plt.figure()
         plt.ylabel("water delivery [g/g]")
         plt.xticks(rotation=90, ha='center')
@@ -865,7 +930,7 @@ def _(linprog, np, warnings):
         n_days = water_del.shape[0]
 
         print(f"optimizing water harvest for {n_mofs} MOFs over {n_days} days...")
-        
+
         # create W matrix
         #  w[d, m] = water delivery [g/g] on day d by MOF m
         water_del_cols = [mof + " water delivery [g/g]" for mof in mofs]
@@ -897,7 +962,7 @@ def _(linprog, np, warnings):
             print("\toptimal composition:")
             for (m, mof) in enumerate(mofs):
                 print(f"\t\t{mof}: {res.x[m]} kg")
-            
+
         return res.x, res.fun
     return (optimize_harvester,)
 
