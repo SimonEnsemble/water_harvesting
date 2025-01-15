@@ -596,7 +596,7 @@ def _(mo):
 
         1. we take air at daytime temperature $T_d$ and relative humidity $h_d\in[0, 1]$.
         the associated daytime partial pressure of water is $p_d = h_d p^* (T_d)$, where the vapor pressure of water at this daytime temperature $p^* (T_d)$ is from Antoine's equation. this air is at 1 atm.
-        2. we heat up this daytime air using the sun, to a temperature $T_s>T_d$. this is a constant-pressure process. so, the percent water in the air remains the same. the fraction water is just the partial pressure divided by total pressure (ideal gas law). since the total pressure is constant, the partial pressure of water remains the same, at $p_d$. however, the hotter air can hold more water, since the saturation pressure of water vapor increases with tempearture. so we recalculate the water vapor saturation pressure $p^*(T_s)$ and compute $h_s=p_s/p^*(T_s)$ as the relative humidity at these hotter conditions.
+        2. we heat up this daytime air using the sun, to a temperature $T_s>T_d$. this is a constant-pressure process. so, the percent water in the air remains the same. the fraction water is just the partial pressure divided by total pressure (ideal gas law). since the total pressure is constant, the partial pressure of water remains the same, then, at $p_d$. i.e. $p_s=p_d$. however, the hotter air can hold more water, since the saturation pressure of water vapor increases with tempearture. so we calculate the water vapor saturation pressure $p^*(T_s)$ at this new temperature and compute $h_s=p_d/p^*(T_s)$ as the relative humidity at these hotter conditions.
 
         putting it all together, the new relative humidity is: 
 
@@ -621,7 +621,15 @@ def _(mo):
 
 
 @app.cell
-def _(np, pd, plt, water_vapor_presssure):
+def _():
+    time_to_color = {'day': "C1", "night": "C0"}
+    time_to_color["ads"] = time_to_color["night"]
+    time_to_color["des"] = time_to_color["day"]
+    return (time_to_color,)
+
+
+@app.cell
+def _(np, pd, plt, time_to_color, water_vapor_presssure):
     class Weather:
         def __init__(self, month, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
             self.month = month
@@ -629,17 +637,17 @@ def _(np, pd, plt, water_vapor_presssure):
             print("\tnighttime adsorption hr: ", time_to_hour["night"])
             print("\tdaytime harvest hr: ", time_to_hour["day"])
 
-            self.relevant_weather_cols = ["T_HR_AVG", "RH_HR_AVG", "SUR_TEMP"]
+            self.relevant_weather_cols = ["T_HR_AVG", "RH_HR_AVG", "SUR_TEMP", "SUR_RH_HR_AVG"] # latter inferred
 
+            self.time_to_hour = time_to_hour
             self._read_raw_weather_data()
             self._process_datetime_and_filter(range(day_min, day_max+1))
             self._minimalize_raw_data()
             self._filter_missing()
 
-            self.time_to_hour = time_to_hour
             self._day_night_data()
 
-            self.time_to_color = {'day': "orange", "night": "black"}
+            self._gen_ads_des_conditions()
 
         def _read_raw_weather_data(self):
             filename = "data/Tuscon_NOAA/CRNH0203-2024-AZ_Tucson_11_W.txt"
@@ -665,31 +673,60 @@ def _(np, pd, plt, water_vapor_presssure):
             self.raw_data["time"] = [pd.Timedelta(hours=h) for h in self.raw_data["LST_TIME"] / 100]
             self.raw_data["datetime"] = self.raw_data["date"] + self.raw_data["time"]
 
+            self._infer_surface_RH()
+
+        def _infer_surface_RH(self):
+            # compute new relative humidity at surface temperature, for heated air
+            self.raw_data["SUR_RH_HR_AVG"] = self.raw_data.apply(
+                lambda day: day["RH_HR_AVG"] * water_vapor_presssure(day["T_HR_AVG"]) / \
+                        water_vapor_presssure(day["SUR_TEMP"]), axis=1
+            )
+
         def viz_timeseries(self):
+            place_to_color = {'air': "C2", 'surface': "C4"}
+
             fig, axs = plt.subplots(2, 1, sharex=True)
             plt.xticks(rotation=90, ha='center')
 
             # T
-            axs[0].plot(self.raw_data["datetime"], self.raw_data["T_HR_AVG"], label="air", color="C0")
-            axs[0].plot(self.raw_data["datetime"], self.raw_data["SUR_TEMP"], label="surface", color="C1")
+            axs[0].plot(
+                self.raw_data["datetime"], self.raw_data["T_HR_AVG"], 
+                label="air", color=place_to_color["air"]
+            )
+            axs[0].plot(
+                self.raw_data["datetime"], self.raw_data["SUR_TEMP"], 
+                label="surface", color=place_to_color["surface"]
+            )
             axs[0].set_ylabel("T [°C]")
-            axs[0].legend(bbox_to_anchor=(1.05, 1))
             axs[0].scatter(
                 self.wdata["night"]["datetime"], self.wdata["night"]["T_HR_AVG"],
-                marker="*", color=self.time_to_color["night"], zorder=10
+                marker="*", color=time_to_color["night"], zorder=10, label="adsorption conditions"
             ) # nighttime air temperature
             axs[0].scatter(
                 self.wdata["day"]["datetime"], self.wdata["day"]["SUR_TEMP"],
-                marker="*", color=self.time_to_color["day"], zorder=10
+                marker="*", color=time_to_color["day"], zorder=10, label="desorption conditions"
             ) # daytime surface temperature
+            axs[0].legend(bbox_to_anchor=(1.05, 1))
 
             # RH
-            axs[1].plot(self.raw_data["datetime"], self.raw_data["RH_HR_AVG"], color="C2")
+            axs[1].plot(
+                self.raw_data["datetime"], self.raw_data["RH_HR_AVG"], 
+                color=place_to_color["air"], label="air"
+            )
+            axs[1].plot(
+                self.raw_data["datetime"], self.raw_data["SUR_RH_HR_AVG"], 
+                color=place_to_color["surface"], label="surface"
+            )
             axs[1].set_ylabel("RH [%]")
             axs[1].scatter(
                 self.wdata["night"]["datetime"], self.wdata["night"]["RH_HR_AVG"],
-                marker="*", color=self.time_to_color["night"], zorder=10
+                marker="*", color=time_to_color["night"], zorder=10
             ) # nighttime RH
+            axs[1].scatter(
+                self.wdata["day"]["datetime"], self.wdata["day"]["SUR_RH_HR_AVG"],
+                marker="*", color=time_to_color["day"], zorder=10
+            ) # day surface RH
+            # already got legend above
 
             plt.show()
 
@@ -701,15 +738,15 @@ def _(np, pd, plt, water_vapor_presssure):
             axs[0].set_ylabel("T [°C]")
             axs[0].plot(
                 self.daynight_wdata["datetime"], self.daynight_wdata["night_T_HR_AVG"], 
-                marker="s", label="night air", color=self.time_to_color["night"]
+                marker="s", label="night air", color=time_to_color["night"]
             )
             axs[0].plot(
                 self.daynight_wdata["datetime"], self.daynight_wdata["day_T_HR_AVG"], 
-                marker="s", label="day air", color=self.time_to_color["day"], linestyle="--"
+                marker="s", label="day air", color=time_to_color["day"], linestyle="--"
             )
             axs[0].plot(
-                self.daynight_wdata["datetime"], self.daynight_wdata["night_SUR_TEMP"], 
-                marker="o", label="day surface", color=self.time_to_color["day"]
+                self.daynight_wdata["datetime"], self.daynight_wdata["day_SUR_TEMP"], 
+                marker="o", label="day surface", color=time_to_color["day"]
             )
             axs[0].legend(bbox_to_anchor=(1.05, 1))
 
@@ -718,13 +755,16 @@ def _(np, pd, plt, water_vapor_presssure):
             # axs[1].set_ylim([0, 100])
             axs[1].plot(
                 self.daynight_wdata["datetime"], self.daynight_wdata["night_RH_HR_AVG"], 
-                marker="s", label="night air", color=self.time_to_color["night"]
+                marker="s", label="night air", color=time_to_color["night"]
             )
             axs[1].plot(
                 self.daynight_wdata["datetime"], self.daynight_wdata["day_RH_HR_AVG"], 
-                marker="s", label="day air", color=self.time_to_color["day"]
+                marker="s", label="day air", color=time_to_color["day"], linestyle="--"
             )
-            axs[1].legend(bbox_to_anchor=(1.05, 1))
+            axs[1].plot(
+                self.daynight_wdata["datetime"], self.daynight_wdata["day_SUR_RH_HR_AVG"], 
+                marker="s", label="day surface", color=time_to_color["day"]
+            )
 
             axs[0].set_title("Tucson, AZ")
 
@@ -758,15 +798,31 @@ def _(np, pd, plt, water_vapor_presssure):
                 on="datetime", how="outer"
             )
 
-            # compute new relative humidity
-            self.daynight_wdata["day_SUR_RH"] = self.daynight_wdata["day_RH_HR_AVG"] * water_vapor_presssure()
-
             self.daynight_wdata.sort_values(by="datetime", inplace=True)
 
             # sequence day by day
             days = self.daynight_wdata.loc[1:, "datetime"].dt.day.values
             days_shifted_by_one = self.daynight_wdata.loc[0:self.daynight_wdata.index[-2], "datetime"].dt.day.values
             assert np.all((days - days_shifted_by_one) == 1)
+
+        def _gen_ads_des_conditions(self):
+            self.ads_des_conditions = self.daynight_wdata.rename(columns=
+                {
+                    "datetime": "date",
+                    # adsorptin conditions (night)
+                    "night_T_HR_AVG": 'ads T [°C]',
+                    "night_RH_HR_AVG": 'ads P/P0',
+                    # desorption conditions (day)
+                    "day_SUR_TEMP": 'des T [°C]',
+                    "day_SUR_RH_HR_AVG": 'des P/P0'
+                }
+            )
+            for rh_col in ['des P/P0', 'ads P/P0']:
+                self.ads_des_conditions[rh_col] = self.ads_des_conditions[rh_col] / 100.0
+
+            self.ads_des_conditions = self.ads_des_conditions[
+                ['date', 'ads T [°C]', 'ads P/P0', 'des T [°C]', 'des P/P0']
+            ]
 
         def _filter_missing(self):
             print("# missing: ", np.sum(self.raw_data["T_HR_AVG"] > 0.0))
@@ -775,16 +831,22 @@ def _(np, pd, plt, water_vapor_presssure):
 
 
 @app.cell
-def _(warnings):
-    warnings.warn("gotta recalcualte RH for the surface, which is hotter!")
-    return
-
-
-@app.cell
 def _(Weather):
     weather = Weather(7, day_min=1, day_max=10)
     weather.raw_data
     return (weather,)
+
+
+@app.cell
+def _(weather):
+    weather.wdata
+    return
+
+
+@app.cell
+def _(weather):
+    weather.daynight_wdata
+    return
 
 
 @app.cell
@@ -805,6 +867,12 @@ def _(weather):
     return
 
 
+@app.cell
+def _(weather):
+    weather.ads_des_conditions
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""# 🚿 modeling water delivery of each MOF on each day""")
@@ -815,23 +883,23 @@ def _(mo):
 def _(warnings):
     def predict_water_delivery(weather, mof_water_ads):
         # begin with weather data
-        water_del = weather.daynight_wdata.copy()
+        water_del = weather.ads_des_conditions.copy()
 
         # predict water delivery of each MOF
         for mof in mof_water_ads.keys():
             # function giving water ads in this MOF at a given T [deg C] and RH [%]
-            water_ads = lambda t, rh : mof_water_ads[mof].predict_water_adsorption(t, rh / 100.0)
+            water_ads = lambda t, p_ovr_p0 : mof_water_ads[mof].predict_water_adsorption(t, p_ovr_p0)
 
             # compute water uptake at nighttime adsorption conditions
             ads_col_name = mof + " night ads [g/g]"
             water_del[ads_col_name] = water_del.apply(
-                lambda day: water_ads(day["night_T_HR_AVG"], day["night_RH_HR_AVG"]), axis=1
+                lambda day: water_ads(day["ads T [°C]"], day["ads P/P0"]), axis=1
             )
 
             # compute water uptake held during day at desorption conditions
             des_col_name = mof + " day ads [g/g]"
             water_del[des_col_name] = water_del.apply(
-                lambda day: water_ads(day["day_SUR_TEMP"], day["day_RH_HR_AVG"]), axis=1
+                lambda day: water_ads(day["des T [°C]"], day["des P/P0"]), axis=1
             )
 
             # compute water delivery
@@ -841,7 +909,7 @@ def _(warnings):
             # handle case where water delivery is zero
             for i in range(water_del.shape[0]):
                 if water_del.loc[i, del_col_name] < 0.0:
-                    date_w_0 = water_del.loc[i, "datetime"]
+                    date_w_0 = water_del.loc[i, "date"]
                     warnings.warn(f"warning: water delivery zero for {mof} on {date_w_0}!")
             water_del.loc[water_del[del_col_name] < 0.0, del_col_name] = 0.0
 
@@ -852,9 +920,17 @@ def _(warnings):
 @app.cell
 def _():
     def trim_water_delivery_data(water_del, mof):
-        ids_keep = [col for col in water_del.columns if mof in col]
-        return water_del[ids_keep]
+        cols = ["date", "ads T [°C]", "ads P/P0", "des T [°C]", "des P/P0"] + \
+            [col for col in water_del.columns if mof in col]
+        return water_del[cols]
     return (trim_water_delivery_data,)
+
+
+@app.cell
+def _(mof_water_ads, predict_water_delivery, weather):
+    water_del = predict_water_delivery(weather, mof_water_ads)
+    water_del
+    return (water_del,)
 
 
 @app.cell
@@ -864,10 +940,53 @@ def _(trim_water_delivery_data, water_del):
 
 
 @app.cell
-def _(mof_water_ads, predict_water_delivery, weather):
-    water_del = predict_water_delivery(weather, mof_water_ads)
-    water_del
-    return (water_del,)
+def _(water_del):
+    water_del.loc[0, "ads T [°C]"]
+    return
+
+
+@app.cell
+def _(
+    T_to_color,
+    axis_labels,
+    np,
+    plt,
+    time_to_color,
+    trim_water_delivery_data,
+):
+    def viz_water_delivery(water_del, mof, day_id, mof_water_ads):
+        water_del_MOF = trim_water_delivery_data(water_del, mof)
+
+        fig = plt.figure()
+        plt.xlabel(axis_labels["pressure"])
+        plt.ylabel(axis_labels["adsorption"])
+
+        p_ovr_p0s = np.linspace(0.01, 1, 100)
+        for ads_or_des in ["ads", "des"]:
+            # condition
+            T        = water_del_MOF.loc[day_id, ads_or_des + " T [°C]"]
+            p_ovr_p0 = water_del_MOF.loc[day_id, ads_or_des + " P/P0"]
+
+            # adsorption isotherm
+            plt.plot(
+                    p_ovr_p0s, [mof_water_ads[mof].predict_water_adsorption(T, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
+                    color=T_to_color(T), linewidth=3, label=f"T = {T:.2f} °C"
+            )
+
+            # condition
+            plt.scatter(
+                p_ovr_p0, mof_water_ads[mof].predict_water_adsorption(T, p_ovr_p0), 
+                marker="*", s=200, zorder=100, color=time_to_color[ads_or_des], label=ads_or_des
+            )
+        plt.legend()
+        plt.show()
+    return (viz_water_delivery,)
+
+
+@app.cell
+def _(mof_water_ads, viz_water_delivery, water_del):
+    viz_water_delivery(water_del, "KMF-1", 1, mof_water_ads)
+    return
 
 
 @app.cell
