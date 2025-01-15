@@ -39,6 +39,12 @@ def _():
     )
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""# optimizing MOF-based water harvesters""")
+    return
+
+
 @app.cell
 def _(os):
     os.getcwd() # current working directory.
@@ -571,25 +577,30 @@ def _(water_vapor_presssure):
 def _(np, plt, water_vapor_presssure):
     def viz_water_vapor_presssure():
         Ts = np.linspace(293, 343, 100) - 273.15 # deg C
-        
+
         plt.figure()
         plt.xlabel("T [°C]")
         plt.ylabel("P* [bar]")
         plt.plot(Ts, [water_vapor_presssure(T_i) for T_i in Ts], linewidth=3)
         plt.show()
-        
-    viz_water_vapor_presssure()  
+
+    viz_water_vapor_presssure()
     return (viz_water_vapor_presssure,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-        suppose we have air at daytime temperature $T_d$ and relative humidity $h_d$ corresponding to water pressure of $P_d=h P^*(T_d)$ with $p^*(T)$ the saturation pressure of water at temperature $T$.
+        **the desorption process**. 
 
-        then, we heat up this air using the sun to a new, higher temperature $T^\prime$. what is the relative humidity $h^\prime$ of this air?
+        1. we take air at daytime temperature $T_d$ and relative humidity $h_d\in[0, 1]$.
+        the associated daytime partial pressure of water is $p_d = h_d p^* (T_d)$, where the vapor pressure of water at this daytime temperature $p^* (T_d)$ is from Antoine's equation. this air is at 1 atm.
+        2. we heat up this daytime air using the sun, to a temperature $T_s>T_d$. this is a constant-pressure process. so, the percent water in the air remains the same. the fraction water is just the partial pressure divided by total pressure (ideal gas law). since the total pressure is constant, the partial pressure of water remains the same, at $p_d$. however, the hotter air can hold more water, since the saturation pressure of water vapor increases with tempearture. so we recalculate the water vapor saturation pressure $p^*(T_s)$ and compute $h_s=p_s/p^*(T_s)$ as the relative humidity at these hotter conditions.
 
+        putting it all together, the new relative humidity is: 
+
+        $h_s=p_d/p^*(T_s)=h_d p^* (T_d)/p^*(T_s)$
         """
     )
     return
@@ -610,7 +621,7 @@ def _(mo):
 
 
 @app.cell
-def _(np, pd, plt):
+def _(np, pd, plt, water_vapor_presssure):
     class Weather:
         def __init__(self, month, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
             self.month = month
@@ -746,6 +757,9 @@ def _(np, pd, plt):
                 reduced_wdata["night"], reduced_wdata["day"],
                 on="datetime", how="outer"
             )
+
+            # compute new relative humidity
+            self.daynight_wdata["day_SUR_RH"] = self.daynight_wdata["day_RH_HR_AVG"] * water_vapor_presssure()
 
             self.daynight_wdata.sort_values(by="datetime", inplace=True)
 
