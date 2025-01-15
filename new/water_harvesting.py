@@ -20,7 +20,7 @@ def _():
 
     # matplotlib styles
     from aquarel import load_theme
-    theme = load_theme("scientific").set_font(size=16)
+    theme = load_theme("umbra_light").set_font(size=16)
     theme.apply()
     return (
         dataclass,
@@ -999,7 +999,7 @@ def _(mof_to_color, plt):
         plt.ylabel("water delivery [g/g]")
         plt.xticks(rotation=90, ha='center')
         for mof in mofs:
-            plt.plot(water_del["datetime"], water_del[mof + " water delivery [g/g]"], marker="s", 
+            plt.plot(water_del["date"], water_del[mof + " water delivery [g/g]"], marker="s", 
                      color=mof_to_color[mof], label=mof)
         plt.legend(bbox_to_anchor=(1.05, 1))
         plt.show()
@@ -1014,15 +1014,15 @@ def _(mof_to_color, plt):
         plt.xticks(rotation=90, ha='center')
         for i in range(water_del.shape[0]):
             plt.vlines(
-                water_del["datetime"], water_del[mof + " day ads [g/g]"], water_del[mof + " night ads [g/g]"], 
+                water_del["date"], water_del[mof + " day ads [g/g]"], water_del[mof + " night ads [g/g]"], 
                      color=mof_to_color[mof]
             )
             plt.scatter(
-                water_del["datetime"], water_del[mof + " day ads [g/g]"], color=mof_to_color[mof], marker="o", 
+                water_del["date"], water_del[mof + " day ads [g/g]"], color=mof_to_color[mof], marker="o", 
                 label="day" if i == 0 else ""
             )
             plt.scatter(
-                water_del["datetime"], water_del[mof + " night ads [g/g]"], color=mof_to_color[mof], marker="s",
+                water_del["date"], water_del[mof + " night ads [g/g]"], color=mof_to_color[mof], marker="s",
                 label="night" if i == 0 else ""
             )
         plt.ylim(ymin=0)
@@ -1044,11 +1044,11 @@ def _(viz_water_delivery_time_series, water_del):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-        # optimizing the water harvester
+        # ::twemoji:control-knobs:: optimizing the water harvester
 
         💡 minimize the mass of the water harvester by tuning the mass of each MOF used, subject to drinking water constraints on each day.
         """
@@ -1110,7 +1110,7 @@ def _(mofs, optimize_harvester, water_del):
 @app.cell
 def _(mof_to_color, plt):
     def viz_optimal_harvester(mofs, opt_mass_of_mofs):
-        fig = plt.figure()
+        fig = plt.figure(figsize=(6.4, 4))
         plt.bar(range(len(mofs)), opt_mass_of_mofs, color=[mof_to_color[mof] for mof in mofs])
         plt.xticks(range(len(mofs)), mofs, rotation=90)
         plt.ylabel("mass [kg]")
@@ -1121,11 +1121,6 @@ def _(mof_to_color, plt):
 @app.cell
 def _(mofs, opt_mass_of_mofs, viz_optimal_harvester):
     viz_optimal_harvester(mofs, opt_mass_of_mofs)
-    return
-
-
-@app.cell
-def _():
     return
 
 
