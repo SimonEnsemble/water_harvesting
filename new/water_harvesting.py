@@ -549,34 +549,41 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(np, warnings):
     # input  T  : deg C
     # output P* : bar
-    def water_vapor_presssure(T, ignore_range=False):
-        if not ignore_range:
-            if T < 293 - 273.15 or T > 343 - 273.15:
-                raise Exception("outside of temperature range.")
+    def water_vapor_presssure(T):
+        if T < 273 - 273.15 or T > 343 - 273.15:
+            warnings.warn(f"{T}°C outside T range of Antoinne eqn.")
+        A = B = C = np.nan
         # coefficients for the following setup:
         #  log10(P) = A − (B / (T + C))
         #     P = vapor pressure (bar)
         #     T = temperature (K)
-        A = 6.20963
-        B = 2354.731
-        C = 7.559
+        if T > 293 - 273.15:
+            # valid for 293. to 343 K
+            A = 6.20963
+            B = 2354.731
+            C = 7.559
+        if T < 293 - 273.15: # cover a bit lower temperatures
+            # valid for 273. to 303 K
+            A = 5.40221
+            B = 1838.675
+            C = -31.737
         return 10.0 ** (A - B / ((T + 273.15) + C))
     return (water_vapor_presssure,)
 
 
 @app.cell
 def _(water_vapor_presssure):
-    water_vapor_presssure(100.0, ignore_range=True) # around 1 bar b/c water boils.
+    water_vapor_presssure(100.0) # around 1 bar b/c water boils.
     return
 
 
 @app.cell
 def _(np, plt, water_vapor_presssure):
     def viz_water_vapor_presssure():
-        Ts = np.linspace(293, 343, 100) - 273.15 # deg C
+        Ts = np.linspace(273, 343, 100) - 273.15 # deg C
 
         plt.figure()
         plt.xlabel("T [°C]")
@@ -629,11 +636,13 @@ def _():
 
 
 @app.cell
-def _(np, pd, plt, time_to_color, water_vapor_presssure):
+def _(np, os, pd, plt, time_to_color, water_vapor_presssure):
     class Weather:
-        def __init__(self, month, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
+        def __init__(self, month, location, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
             self.month = month
-            print(f"reading 2024 Tucson weather for {month}/{day_min} - {month}/{day_max}.")
+            self.location = location
+            
+            print(f"reading 2024 {location} weather for {month}/{day_min} - {month}/{day_max}.")
             print("\tnighttime adsorption hr: ", time_to_hour["night"])
             print("\tdaytime harvest hr: ", time_to_hour["day"])
 
@@ -650,11 +659,15 @@ def _(np, pd, plt, time_to_color, water_vapor_presssure):
             self._gen_ads_des_conditions()
 
         def _read_raw_weather_data(self):
-            filename = "data/Tuscon_NOAA/CRNH0203-2024-AZ_Tucson_11_W.txt"
+            wdata_dir = "data/NOAA_weather_data"
+            wfiles = os.listdir(wdata_dir)
+            assert [self.location in wfile for wfile in wfiles]
 
-            col_names = open("data/Tuscon_NOAA/headers.txt", "r").readlines()[1].split()
+            filename = list(filter(lambda wfile: self.location in wfile, wfiles))[0]
 
-            raw_data = pd.read_csv(filename, sep=",", names=col_names, dtype={'LST_DATE': str})
+            col_names = open(wdata_dir + "/headers.txt", "r").readlines()[1].split()
+
+            raw_data = pd.read_csv(wdata_dir + "/" + filename, sep=",", names=col_names, dtype={'LST_DATE': str})
 
             self.raw_data = raw_data
 
@@ -700,11 +713,11 @@ def _(np, pd, plt, time_to_color, water_vapor_presssure):
             axs[0].set_ylabel("T [°C]")
             axs[0].scatter(
                 self.wdata["night"]["datetime"], self.wdata["night"]["T_HR_AVG"],
-                marker="*", color=time_to_color["night"], zorder=10, label="adsorption conditions"
+                marker="*", color=time_to_color["night"], zorder=10, label="adsorption conditions", s=50
             ) # nighttime air temperature
             axs[0].scatter(
                 self.wdata["day"]["datetime"], self.wdata["day"]["SUR_TEMP"],
-                marker="*", color=time_to_color["day"], zorder=10, label="desorption conditions"
+                marker="*", color=time_to_color["day"], zorder=10, label="desorption conditions", s=50
             ) # daytime surface temperature
             axs[0].legend(bbox_to_anchor=(1.05, 1))
 
@@ -720,11 +733,11 @@ def _(np, pd, plt, time_to_color, water_vapor_presssure):
             axs[1].set_ylabel("RH [%]")
             axs[1].scatter(
                 self.wdata["night"]["datetime"], self.wdata["night"]["RH_HR_AVG"],
-                marker="*", color=time_to_color["night"], zorder=10
+                marker="*", color=time_to_color["night"], zorder=10, s=50
             ) # nighttime RH
             axs[1].scatter(
                 self.wdata["day"]["datetime"], self.wdata["day"]["SUR_RH_HR_AVG"],
-                marker="*", color=time_to_color["day"], zorder=10
+                marker="*", color=time_to_color["day"], zorder=10, s=50
             ) # day surface RH
             # already got legend above
 
@@ -766,7 +779,7 @@ def _(np, pd, plt, time_to_color, water_vapor_presssure):
                 marker="s", label="day surface", color=time_to_color["day"]
             )
 
-            axs[0].set_title("Tucson, AZ")
+            axs[0].set_title(self.location)
 
             plt.show()
 
@@ -830,9 +843,22 @@ def _(np, pd, plt, time_to_color, water_vapor_presssure):
     return (Weather,)
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+        📍 options: 
+
+        * Tucson, AZ
+        * Socorro, NM
+        """
+    )
+    return
+
+
 @app.cell
 def _(Weather):
-    weather = Weather(7, day_min=1, day_max=10)
+    weather = Weather(7, "Socorro", day_min=2, day_max=10)
     weather.raw_data
     return (weather,)
 
