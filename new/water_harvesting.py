@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.6"
+__generated_with = "0.10.2"
 app = marimo.App(width="medium")
 
 
@@ -253,7 +253,7 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
                     color=color, label="theory"
                 )
 
-            plt.legend(title="T = {}$^\circ$C".format(temperature))
+            plt.legend(title="T = {}°C".format(temperature))
             plt.ylim(ymin=0)
             plt.xlim(xmin=0)
             plt.title(self.mof)
@@ -271,7 +271,7 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
                 # draw data
                 plt.scatter(
                     data['P/P_0'], data['Water Uptake [kg kg-1]'], 
-                    clip_on=False, color=T_to_color(temperature), label="{}$^\circ$C".format(temperature)
+                    clip_on=False, color=T_to_color(temperature), label="{}°C".format(temperature)
                 )        
                 if incl_predictions:
                     p_ovr_p0s = np.linspace(0, 1, 100)[1:]
@@ -298,7 +298,7 @@ def _(R, T_to_color, axis_labels, interpolate, np, pd, plt):
                 # draw data
                 plt.scatter(
                     data['A [kJ/mol]'], data['Water Uptake [kg kg-1]'], 
-                    clip_on=False, color=T_to_color(temperature), label="{}$^\circ$C".format(temperature)
+                    clip_on=False, color=T_to_color(temperature), label="{}°C".format(temperature)
                 )
 
                 # track A_max
@@ -524,7 +524,7 @@ def _(axis_labels, mof_to_color, mofs, np, plt):
                 p_ovr_p0s, [mof_water_ads[mof].predict_water_adsorption(temperature, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
                 color=mof_to_color[mof], linewidth=3, label=mof
             )
-        plt.title("T = {}$^\circ$C".format(temperature))
+        plt.title("T = {}°C".format(temperature))
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.show()
     return (viz_all_predicted_adsorption_isotherms,)
@@ -978,6 +978,7 @@ def _(
                 p_ovr_p0, mof_water_ads[mof].predict_water_adsorption(T, p_ovr_p0), 
                 marker="*", s=200, zorder=100, color=time_to_color[ads_or_des], label=ads_or_des
             )
+        plt.title(mof)
         plt.legend()
         plt.show()
     return (viz_water_delivery,)
@@ -996,7 +997,7 @@ def _(mof_to_color, plt):
         mofs = [col.split()[0] for col in water_del.columns if "delivery" in col]
 
         plt.figure()
-        plt.ylabel("water delivery [g/g]")
+        plt.ylabel("water delivery [kg H$_2$O/kg MOF]")
         plt.xticks(rotation=90, ha='center')
         for mof in mofs:
             plt.plot(water_del["date"], water_del[mof + " water delivery [g/g]"], marker="s", 
@@ -1007,26 +1008,26 @@ def _(mof_to_color, plt):
 
 
 @app.cell
-def _(mof_to_color, plt):
+def _(plt, time_to_color):
     def viz_water_delivery_time_series_mof(water_del, mof):    
         plt.figure()
-        plt.ylabel("water adsorption [g/g]")
+        plt.ylabel("water adsorption [kg H$_2$O/kg MOF]")
         plt.xticks(rotation=90, ha='center')
         for i in range(water_del.shape[0]):
             plt.vlines(
                 water_del["date"], water_del[mof + " day ads [g/g]"], water_del[mof + " night ads [g/g]"], 
-                     color=mof_to_color[mof]
+                     color="gray", linestyle="--"
             )
             plt.scatter(
-                water_del["date"], water_del[mof + " day ads [g/g]"], color=mof_to_color[mof], marker="o", 
+                water_del["date"], water_del[mof + " day ads [g/g]"], color=time_to_color["day"], marker="o", 
                 label="day" if i == 0 else ""
             )
             plt.scatter(
-                water_del["date"], water_del[mof + " night ads [g/g]"], color=mof_to_color[mof], marker="s",
+                water_del["date"], water_del[mof + " night ads [g/g]"], color=time_to_color["night"], marker="s",
                 label="night" if i == 0 else ""
             )
         plt.ylim(ymin=0)
-        plt.legend()
+        plt.legend(loc="center")
         plt.title(mof)
         plt.show()
     return (viz_water_delivery_time_series_mof,)
@@ -1048,6 +1049,64 @@ def _(viz_water_delivery_time_series, water_del):
 def _(mo):
     mo.md(
         r"""
+        # ::tabler:baseline-density-large:: baseline: pure-MOF water harvester
+
+        how much MOF do we need for a water harvester based on a pure-MOF water harvester?
+        """
+    )
+    return
+
+
+@app.cell
+def _(water_del):
+    water_del
+    return
+
+
+@app.cell
+def _(pd):
+    def mass_water_harvester(mofs, water_del, daily_water_demand):
+        pure_mof_harvester = pd.DataFrame(index=mofs)
+        for mof in mofs:
+            # get MOF needed to meet water demand on each day
+            #  based on kg H2O / kg MOF delivered on that day
+            #  since this is a hard constraint, we take the max over days.
+            pure_mof_harvester.loc[mof, "mass [kg]"] = (daily_water_demand / water_del[mof + " water delivery [g/g]"]).max()
+        return pure_mof_harvester
+    return (mass_water_harvester,)
+
+
+@app.cell
+def _(mass_water_harvester, mofs, water_del):
+    pure_mof_harvester = mass_water_harvester(mofs, water_del, 2.0)
+    pure_mof_harvester
+    return (pure_mof_harvester,)
+
+
+@app.cell
+def _(mof_to_color, plt):
+    def viz_pure_mof_harvester(pure_mof_harvester, mofs):
+        fig = plt.figure(figsize=(6.4, 4))
+        plt.bar(
+            range(len(mofs)), [pure_mof_harvester.loc[mof, "mass [kg]"] for mof in mofs], 
+            color=[mof_to_color[mof] for mof in mofs]
+        )
+        plt.xticks(range(len(mofs)), mofs, rotation=90)
+        plt.ylabel("mass [kg]")
+        plt.show()
+    return (viz_pure_mof_harvester,)
+
+
+@app.cell
+def _(mofs, pure_mof_harvester, viz_pure_mof_harvester):
+    viz_pure_mof_harvester(pure_mof_harvester, mofs)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
         # ::twemoji:control-knobs:: optimizing the water harvester
 
         💡 minimize the mass of the water harvester by tuning the mass of each MOF used, subject to drinking water constraints on each day.
@@ -1057,12 +1116,20 @@ def _(mo):
 
 
 @app.cell
-def _(linprog, np, warnings):
-    def optimize_harvester(mofs, water_del, daily_water_demand):
+def _(linprog, np, pd, warnings):
+    def optimize_harvester(
+        # list of candidate MOFs to comprise the water harvester
+        mofs,
+        # water delivery data on each day for each MOF
+        water_del, 
+        # water needed per day [kg]
+        daily_water_demand
+    ):
         n_mofs = len(mofs)
         n_days = water_del.shape[0]
 
         print(f"optimizing water harvest for {n_mofs} MOFs over {n_days} days...")
+        print(f"\tdrinking water demand [kg] : {daily_water_demand}")
 
         # create W matrix
         #  w[d, m] = water delivery [g/g] on day d by MOF m
@@ -1090,13 +1157,13 @@ def _(linprog, np, warnings):
             warnings.warn("yikes! failure to solve linear program.")
             return res
         else:
-            print("optimization successful.")
-            print("\tmin mass of water harvester: ", res.fun)
-            print("\toptimal composition:")
+            print("\toptimization successful.")
+            print("\t\tmin mass of water harvester [kg]: ", res.fun)
+            print("\t\toptimal composition:")
             for (m, mof) in enumerate(mofs):
-                print(f"\t\t{mof}: {res.x[m]} kg")
+                print(f"\t\t\t{mof}: {res.x[m]} kg")
 
-        return res.x, res.fun
+        return pd.DataFrame({"mass [kg]": res.x}, index=mofs), res.fun
     return (optimize_harvester,)
 
 
@@ -1109,18 +1176,24 @@ def _(mofs, optimize_harvester, water_del):
 
 @app.cell
 def _(mof_to_color, plt):
-    def viz_optimal_harvester(mofs, opt_mass_of_mofs):
+    def viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester):
         fig = plt.figure(figsize=(6.4, 4))
-        plt.bar(range(len(mofs)), opt_mass_of_mofs, color=[mof_to_color[mof] for mof in mofs])
+        plt.bar(
+            range(len(mofs)), 
+            [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in mofs], 
+            color=[mof_to_color[mof] for mof in mofs]
+        )
         plt.xticks(range(len(mofs)), mofs, rotation=90)
+        # baseline of optimal pure-MOF water harvester
+        plt.axhline(pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--")
         plt.ylabel("mass [kg]")
         plt.show()
     return (viz_optimal_harvester,)
 
 
 @app.cell
-def _(mofs, opt_mass_of_mofs, viz_optimal_harvester):
-    viz_optimal_harvester(mofs, opt_mass_of_mofs)
+def _(mofs, opt_mass_of_mofs, pure_mof_harvester, viz_optimal_harvester):
+    viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester)
     return
 
 
