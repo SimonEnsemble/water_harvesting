@@ -650,9 +650,9 @@ def _(np, os, pd, plt, time_to_color, water_vapor_presssure):
 
             self.time_to_hour = time_to_hour
             self._read_raw_weather_data()
+            self._filter_missing()
             self._process_datetime_and_filter(range(day_min, day_max+1))
             self._minimalize_raw_data()
-            self._filter_missing()
 
             self._day_night_data()
 
@@ -838,8 +838,8 @@ def _(np, os, pd, plt, time_to_color, water_vapor_presssure):
             ]
 
         def _filter_missing(self):
-            print("# missing: ", np.sum(self.raw_data["T_HR_AVG"] > 0.0))
-            # self.wdata = self.wdata[self.wdata["T_HR_AVG"] > 0.0]
+            print("filtering # missing in raw: ", np.sum(self.raw_data["T_HR_AVG"] < -999.0))
+            self.raw_data = self.raw_data[self.raw_data["T_HR_AVG"] > -999.0]
     return (Weather,)
 
 
@@ -858,9 +858,15 @@ def _(mo):
 
 @app.cell
 def _(Weather):
-    weather = Weather(7, "Socorro", day_min=2, day_max=10)
+    weather = Weather(6, "Socorro", day_min=1, day_max=10)
     weather.raw_data
     return (weather,)
+
+
+@app.cell
+def _(weather):
+    (weather.raw_data["T_HR_AVG"] < -990.0).sum()
+    return
 
 
 @app.cell
@@ -1201,8 +1207,8 @@ def _(mofs, optimize_harvester, water_del):
 
 
 @app.cell
-def _(mof_to_color, plt):
-    def viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester):
+def _(mof_to_color, np, plt):
+    def viz_optimal_harvester(mofs, opt_mass_of_mofs):
         fig = plt.figure(figsize=(6.4, 4))
         plt.bar(
             range(len(mofs)), 
@@ -1210,16 +1216,54 @@ def _(mof_to_color, plt):
             color=[mof_to_color[mof] for mof in mofs]
         )
         plt.xticks(range(len(mofs)), mofs, rotation=90)
-        # baseline of optimal pure-MOF water harvester
-        plt.axhline(pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--")
         plt.ylabel("mass [kg]")
+        total_mass = np.round(opt_mass_of_mofs["mass [kg]"].sum(), decimals=2)
+        plt.legend(title=f"total mass: {total_mass} kg")
         plt.show()
     return (viz_optimal_harvester,)
 
 
 @app.cell
-def _(mofs, opt_mass_of_mofs, pure_mof_harvester, viz_optimal_harvester):
-    viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester)
+def _(mofs, opt_mass_of_mofs, viz_optimal_harvester):
+    viz_optimal_harvester(mofs, opt_mass_of_mofs)
+    return
+
+
+@app.cell
+def _(mof_to_color, plt):
+    def viz_optimal_harvester2(mofs, opt_mass_of_mofs, pure_mof_harvester):
+        fig, ax = plt.subplots()
+
+        bottom = 0
+        for mof in mofs:
+            m_mof = opt_mass_of_mofs.loc[mof, "mass [kg]"]
+            if m_mof > 0.0:
+                ax.bar(0, m_mof, bottom=bottom, label=mof, color=mof_to_color[mof])
+                bottom += m_mof
+        
+        # baseline of optimal pure-MOF water harvester
+        plt.axhline(pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--")
+
+        plt.xlim([-1, 1])
+        
+        # Add labels and title
+        ax.set_xticks([0], [""])
+        ax.set_ylabel('mass [kg]')
+        ax.set_title('optimal harvester composition')
+        ax.legend(bbox_to_anchor=(1.0, 1.05))
+        
+        plt.show()
+    return (viz_optimal_harvester2,)
+
+
+@app.cell
+def _(mofs, opt_mass_of_mofs, pure_mof_harvester, viz_optimal_harvester2):
+    viz_optimal_harvester2(mofs, opt_mass_of_mofs, pure_mof_harvester)
+    return
+
+
+@app.cell
+def _():
     return
 
 
