@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.2"
+__generated_with = "0.10.6"
 app = marimo.App(width="medium")
 
 
@@ -641,7 +641,7 @@ def _(np, os, pd, plt, time_to_color, water_vapor_presssure):
         def __init__(self, month, location, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
             self.month = month
             self.location = location
-            
+
             print(f"reading 2024 {location} weather for {month}/{day_min} - {month}/{day_max}.")
             print("\tnighttime adsorption hr: ", time_to_hour["night"])
             print("\tdaytime harvest hr: ", time_to_hour["day"])
@@ -1194,16 +1194,24 @@ def _(linprog, np, pd, warnings):
             print("\t\toptimal composition:")
             for (m, mof) in enumerate(mofs):
                 print(f"\t\t\t{mof}: {res.x[m]} kg")
+                
+        # get active constraints
+        active_constraints = [d for d, s in enumerate(res.slack) if s == 0]
 
-        return pd.DataFrame({"mass [kg]": res.x}, index=mofs), res.fun
+        return pd.DataFrame({"mass [kg]": res.x}, index=mofs), res.fun, active_constraints
     return (optimize_harvester,)
 
 
 @app.cell
 def _(mofs, optimize_harvester, water_del):
     daily_water_demand = 2.0 # kg
-    opt_mass_of_mofs, min_mass = optimize_harvester(mofs, water_del, daily_water_demand)
-    return daily_water_demand, min_mass, opt_mass_of_mofs
+    opt_mass_of_mofs, min_mass, active_constraints = optimize_harvester(mofs, water_del, daily_water_demand)
+    return (
+        active_constraints,
+        daily_water_demand,
+        min_mass,
+        opt_mass_of_mofs,
+    )
 
 
 @app.cell
@@ -1240,18 +1248,18 @@ def _(mof_to_color, plt):
             if m_mof > 0.0:
                 ax.bar(0, m_mof, bottom=bottom, label=mof, color=mof_to_color[mof])
                 bottom += m_mof
-        
+
         # baseline of optimal pure-MOF water harvester
         plt.axhline(pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--")
 
         plt.xlim([-1, 1])
-        
+
         # Add labels and title
         ax.set_xticks([0], [""])
         ax.set_ylabel('mass [kg]')
         ax.set_title('optimal harvester composition')
         ax.legend(bbox_to_anchor=(1.0, 1.05))
-        
+
         plt.show()
     return (viz_optimal_harvester2,)
 
@@ -1262,9 +1270,84 @@ def _(mofs, opt_mass_of_mofs, pure_mof_harvester, viz_optimal_harvester2):
     return
 
 
-@app.cell
-def _():
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+        ## 2D toy example for visualizing the constraints
+
+        suppose there are two candidate MOFs to be carried over three days.
+        """
+    )
     return
+
+
+@app.cell
+def _(
+    Weather,
+    daily_water_demand,
+    mof_water_ads,
+    np,
+    optimize_harvester,
+    plt,
+    predict_water_delivery,
+):
+    _weather = Weather(month=7, location="Tucson", day_min=0, day_max=10)
+
+    _mofs = ["MOF-801", "Al-Fum"]
+
+    _water_del = predict_water_delivery(_weather, {mof: mof_water_ads[mof] for mof in _mofs})
+
+    _opt_mass_of_mofs, _min_mass, _active_constraints = optimize_harvester(_mofs, _water_del, daily_water_demand)
+
+    plt.figure()
+    plt.xlabel(f"mass of {_mofs[0]} [kg]")
+    plt.ylabel(f"mass of {_mofs[1]} [kg]")
+
+    # plot optimal composition
+    plt.scatter(
+        _opt_mass_of_mofs.loc[_mofs[0], "mass [kg]"], _opt_mass_of_mofs.loc[_mofs[1], "mass [kg]"], 
+        s=200, marker="*", clip_on=False, zorder=25, color="C1", label="optimal\ncomposition"
+    )
+
+    max_mass = _opt_mass_of_mofs["mass [kg]"].max() * 1.5
+
+    plt.xlim(0, max_mass)
+    plt.ylim(0, max_mass)
+
+    # plot water delivery constraints
+    m0s = np.linspace(0.0, max_mass)
+    m1s_feasible = np.zeros(len(m0s))
+    for d in range(_water_del.shape[0]):
+        d_0 = _water_del.loc[d, f"{_mofs[0]} water delivery [g/g]"]
+        d_1 = _water_del.loc[d, f"{_mofs[1]} water delivery [g/g]"]
+
+        m1s = (daily_water_demand - m0s * d_0) / d_1
+        if d in _active_constraints:
+            m1s_feasible = np.maximum(m1s_feasible, m1s)
+        
+        plt.plot(
+            m0s, m1s, 
+            color="black", label="constraint" if d == 0 else ""
+        )
+
+    # plot constant mass
+    plt.plot(m0s, _min_mass - m0s, color="C0", linestyle="--", label="iso-mass")
+
+    # shade feasible region (works for two active constraints)
+    ids_feasible = m1s_feasible < max_mass
+    plt.fill_between(
+        m0s[ids_feasible], m1s_feasible[ids_feasible], 
+        np.ones(np.sum(ids_feasible)) * max_mass,
+        color="C3", label="feasible region"
+    )
+
+    plt.gca().set_aspect('equal', 'box')
+    plt.legend(bbox_to_anchor=(1.05, 0.5), loc='center left')
+    plt.show()
+
+    _water_del.loc[_active_constraints]
+    return d, d_0, d_1, ids_feasible, m0s, m1s, m1s_feasible, max_mass
 
 
 if __name__ == "__main__":
