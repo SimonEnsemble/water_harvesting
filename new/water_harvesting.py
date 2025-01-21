@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.6"
+__generated_with = "0.10.15"
 app = marimo.App(width="medium")
 
 
@@ -143,8 +143,8 @@ def _(mpl):
 
     # commonly-used plot labels
     axis_labels = {
-        'pressure': 'relative humidity, $p/p_0$',
-        'adsorption': 'water uptake, $w$ [kg/kg]',
+        'pressure': 'relative humidity, $\phi=p/p_0$',
+        'adsorption': 'water uptake, $w$ [kg H$_2$O/kg MOF]',
         'potential': 'Polanyi Potential, $A(T, p/p_0)$ [kJ/mol]'
     }
 
@@ -569,12 +569,18 @@ def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
         for mof in mof_water_ads.keys():
             T = mof_water_ads[mof].fit_temperature
             data = mof_water_ads[mof]._read_ads_data(T)
-            
-            plt.scatter(
+
+            # plt.scatter(
+            #     data['P/P_0'], data['Water Uptake [kg kg-1]'],
+            #     color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
+            #     facecolors='none', edgecolors=mof_to_color[mof], 
+            #     marker=mof_to_marker[mof], s=50
+            # )
+            plt.plot(
                 data['P/P_0'], data['Water Uptake [kg kg-1]'],
                 color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
-                facecolors='none', edgecolors=mof_to_color[mof], 
-                marker=mof_to_marker[mof], s=50
+                # markerfacecolors='none', markeredgecolors=mof_to_color[mof], 
+                marker=mof_to_marker[mof], #s=50
             )
         plt.legend(bbox_to_anchor=(1.05, 0.5), loc='center left')
         plt.xlim([0, 1])
@@ -760,7 +766,7 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
             )
 
         def viz_timeseries(self, save=False):
-            place_to_color = {'air': "C2", 'surface': "C4"}
+            place_to_color = {'air': "C2", 'surface': "C5"}
 
             fig, axs = plt.subplots(2, 1, sharex=True)
             plt.xticks(rotation=90, ha='center')
@@ -1272,10 +1278,10 @@ def _(linprog, np, pd, warnings):
             'slack': res.slack,
             'marginals': res.ineqlin["marginals"]
         }
-        
+
         # slack and residuals are the same.
         assert np.all(res.ineqlin["residual"] == res.slack)
-        
+
         return pd.DataFrame({"mass [kg]": res.x}, index=mofs), res.fun, opt_info
     return (optimize_harvester,)
 
@@ -1453,7 +1459,7 @@ def _(
         s=200, marker="*", clip_on=False, zorder=25, color="C1", label="optimal\ncomposition"
     )
 
-    max_mass = _opt_mass_of_mofs["mass [kg]"].max() * 1.5
+    max_mass = 30.0 # _opt_mass_of_mofs["mass [kg]"].max() * 2.5
 
     plt.xlim(0, max_mass)
     plt.ylim(0, max_mass)
@@ -1468,7 +1474,7 @@ def _(
         m1s = (daily_water_demand - m0s * d_0) / d_1
         if d in _opt_info["active constraints"]:
             m1s_feasible = np.maximum(m1s_feasible, m1s)
-        
+
         plt.plot(
             m0s, m1s, 
             color="black", label="constraint" if d == 0 else ""
