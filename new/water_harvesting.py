@@ -136,9 +136,9 @@ def _(mpl):
 
     # commonly-used plot labels
     axis_labels = {
-        'pressure': 'relative humidity, $P/P_0$',
+        'pressure': 'relative humidity, $p/p_0$',
         'adsorption': 'water uptake, $w$ [kg/kg]',
-        'potential': 'Polanyi Potential, $A(T, P/P_0)$ [kJ/mol]'
+        'potential': 'Polanyi Potential, $A(T, p/p_0)$ [kJ/mol]'
     }
 
     # mapping temperature to color
