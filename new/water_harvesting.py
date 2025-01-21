@@ -1048,6 +1048,7 @@ def _(water_del):
 def _(
     T_to_color,
     axis_labels,
+    fig_dir,
     np,
     plt,
     time_to_color,
@@ -1075,10 +1076,13 @@ def _(
             # condition
             plt.scatter(
                 p_ovr_p0, mof_water_ads[mof].predict_water_adsorption(T, p_ovr_p0), 
-                marker="*", s=200, zorder=100, color=time_to_color[ads_or_des], label=ads_or_des
+                marker="*", s=200, zorder=100, color=time_to_color[ads_or_des], 
+                label="adsorption" if ads_or_des == "ads" else "desorption"
             )
         plt.title(mof)
-        plt.legend()
+        date = water_del_MOF.loc[day_id, "date"].date()
+        plt.legend(title=f"date: {date}")
+        plt.savefig(fig_dir + f"/{mof}_ads_des_{date}.pdf", format="pdf", bbox_inches="tight")
         plt.show()
     return (viz_water_delivery,)
 
@@ -1183,7 +1187,7 @@ def _(mass_water_harvester, mofs, water_del):
 
 
 @app.cell
-def _(mof_to_color, plt):
+def _(fig_dir, mof_to_color, plt):
     def viz_pure_mof_harvester(pure_mof_harvester, mofs):
         fig = plt.figure(figsize=(6.4, 4))
         plt.bar(
@@ -1192,6 +1196,7 @@ def _(mof_to_color, plt):
         )
         plt.xticks(range(len(mofs)), mofs, rotation=90)
         plt.ylabel("mass [kg]")
+        plt.savefig(fig_dir + f"/baseline.pdf", format="pdf", bbox_inches="tight")
         plt.show()
     return (viz_pure_mof_harvester,)
 
@@ -1283,7 +1288,7 @@ def _(mofs, optimize_harvester, water_del):
 
 
 @app.cell
-def _(mof_to_color, np, plt):
+def _(fig_dir, mof_to_color, np, plt):
     def viz_optimal_harvester(mofs, opt_mass_of_mofs):
         fig = plt.figure(figsize=(6.4, 4))
         plt.bar(
@@ -1295,6 +1300,7 @@ def _(mof_to_color, np, plt):
         plt.ylabel("mass [kg]")
         total_mass = np.round(opt_mass_of_mofs["mass [kg]"].sum(), decimals=2)
         plt.legend(title=f"total mass:\n  {total_mass} kg")
+        plt.savefig(fig_dir + f"/opt_harvester_composition.pdf", format="pdf", bbox_inches="tight")
         plt.show()
     return (viz_optimal_harvester,)
 
@@ -1306,7 +1312,7 @@ def _(mofs, opt_mass_of_mofs, viz_optimal_harvester):
 
 
 @app.cell
-def _(mof_to_color, plt):
+def _(fig_dir, mof_to_color, plt):
     def viz_optimal_harvester2(mofs, opt_mass_of_mofs, pure_mof_harvester):
         fig, ax = plt.subplots(figsize=(2.5, 4))
 
@@ -1327,7 +1333,7 @@ def _(mof_to_color, plt):
         ax.set_ylabel('mass [kg]')
         ax.set_title('optimal harvester\ncomposition')
         ax.legend(bbox_to_anchor=(1.0, 1.05))
-
+        plt.savefig(fig_dir + f"/opt_harvester_composition_2.pdf", format="pdf", bbox_inches="tight")
         plt.show()
     return (viz_optimal_harvester2,)
 
@@ -1356,7 +1362,7 @@ def _(np, opt_info, weather):
 
 
 @app.cell
-def _(mof_to_color, plt):
+def _(fig_dir, mof_to_color, plt):
     def viz_opt_water_delivery_time_series(water_del, opt_mass_of_mofs, daily_water_demand):
         # list of MOFs comprising water harvester
         mofs = [mof for mof in opt_mass_of_mofs.index if opt_mass_of_mofs.loc[mof, "mass [kg]"] > 0]
@@ -1372,6 +1378,7 @@ def _(mof_to_color, plt):
             bottom = bottom + w_mof
         plt.axhline(y=daily_water_demand, color="black", linestyle="--", label="demand")
         plt.legend(bbox_to_anchor=(1.05, 1))
+        plt.savefig(fig_dir + f"/water_delivery_by_opt_harvester.pdf", format="pdf", bbox_inches="tight")
         plt.show()
     return (viz_opt_water_delivery_time_series,)
 
@@ -1421,6 +1428,7 @@ def _(mo):
 def _(
     Weather,
     daily_water_demand,
+    fig_dir,
     mof_water_ads,
     np,
     optimize_harvester,
@@ -1479,6 +1487,7 @@ def _(
 
     plt.gca().set_aspect('equal', 'box')
     plt.legend(bbox_to_anchor=(1.05, 0.5), loc='center left')
+    plt.savefig(fig_dir + f"/twoD_linear_program.pdf", format="pdf", bbox_inches="tight")
     plt.show()
 
     _water_del.loc[_opt_info["active constraints"]]
