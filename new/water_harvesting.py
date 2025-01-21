@@ -69,7 +69,7 @@ def _(mo):
         | MOF-303 | [link](https://www.science.org/doi/10.1126/science.abj0890) | plot digitized from Fig. 1 A |✅ | | ✅ |
         | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 | ✅ | caution: moderate hysteresis | ✅ |
         | Al-Fum | [link](https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d) | plot digitized from Fig. 3 | ✅ | |✅ |
-        | MIP-200 | [link]([https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d](https://www.nature.com/articles/s41560-018-0261-6)) | plot digitized from Fig. 2 | ✅ ||✅ |
+        | MIP-200 | [link](https://www.nature.com/articles/s41560-018-0261-6) | plot digitized from Fig. 2 | ✅ ||✅ |
 
 
         we extracted all water adsorption data from plots in the papers using [plot digitizer](https://www.graphreader.com/v2). we took only the _adsorption_ branch, neglecting hysteresis.
@@ -93,7 +93,7 @@ def _(sns):
     mof_to_data_temperatures = {
         "MOF-801": [15, 25, 45, 65, 85],
         "KMF-1": [25],
-        "CAU-23": [25],
+        "CAU-23": [25, 40, 60],
         "MIL-160": [20],
         "MOF-303": [25],
         "CAU-10H": [25],
@@ -113,10 +113,13 @@ def _(sns):
     }
 
     mof_to_color = dict(zip(mofs, sns.color_palette("hls", len(mofs))))
+
+    mof_to_marker = dict(zip(mofs, ['o', 's', '^', 'v', '>', '<', '*', 'D'])) # h next
     return (
         mof_to_color,
         mof_to_data_temperatures,
         mof_to_fit_temperatures,
+        mof_to_marker,
         mofs,
     )
 
@@ -439,6 +442,12 @@ def _(mof_water_ads):
     return
 
 
+@app.cell
+def _(mof_water_ads):
+    mof_water_ads["CAU-23"].plot_characteristic_curves()
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""## MIL-160""")
@@ -499,6 +508,12 @@ def _(mof_water_ads):
     return
 
 
+@app.cell
+def _(mof_water_ads):
+    mof_water_ads["MIP-200"].fit_temperature
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
@@ -512,14 +527,14 @@ def _(mo):
 
 
 @app.cell
-def _(axis_labels, mof_to_color, mofs, np, plt):
+def _(axis_labels, mof_to_color, np, plt):
     def viz_all_predicted_adsorption_isotherms(temperature, mof_water_ads):
         fig = plt.Figure()
         plt.xlabel(axis_labels["pressure"])
         plt.ylabel(axis_labels["adsorption"])
 
         p_ovr_p0s = np.linspace(0, 1, 100)[1:]
-        for mof in mofs:
+        for mof in mof_water_ads.keys():
             plt.plot(
                 p_ovr_p0s, [mof_water_ads[mof].predict_water_adsorption(temperature, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
                 color=mof_to_color[mof], linewidth=3, label=mof
@@ -534,6 +549,46 @@ def _(axis_labels, mof_to_color, mofs, np, plt):
 def _(mof_water_ads, viz_all_predicted_adsorption_isotherms):
     viz_all_predicted_adsorption_isotherms(25, mof_water_ads)
     return
+
+
+@app.cell
+def _(axis_labels, mof_to_color, mof_to_marker, plt):
+    def viz_all_measured_adsorption_isotherms(mof_water_ads):
+        fig = plt.Figure()#figsize=(8.4, 4.8))
+        plt.xlabel(axis_labels["pressure"])
+        plt.ylabel(axis_labels["adsorption"])
+
+        for mof in mof_water_ads.keys():
+            T = mof_water_ads[mof].fit_temperature
+            data = mof_water_ads[mof]._read_ads_data(T)
+            
+            plt.scatter(
+                data['P/P_0'], data['Water Uptake [kg kg-1]'],
+                color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
+                facecolors='none', edgecolors=mof_to_color[mof], 
+                marker=mof_to_marker[mof], s=50
+            )
+        plt.legend(bbox_to_anchor=(1.05, 0.5), loc='center left')
+        plt.xlim([0, 1])
+        plt.ylim([0, 0.5])
+        # plt.tight_layout()
+        plt.savefig("water_adsorption_data_all_mofs.pdf", format="pdf", bbox_inches='tight')
+        plt.show()
+    return (viz_all_measured_adsorption_isotherms,)
+
+
+@app.cell
+def _(mof_water_ads, viz_all_measured_adsorption_isotherms):
+    viz_all_measured_adsorption_isotherms(mof_water_ads)
+    return
+
+
+app._unparsable_cell(
+    r"""
+    mof_water_ads[mof].
+    """,
+    name="_"
+)
 
 
 @app.cell(hide_code=True)
