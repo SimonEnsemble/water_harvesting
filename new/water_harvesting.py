@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.15"
+__generated_with = "0.10.6"
 app = marimo.App(width="medium")
 
 
@@ -715,16 +715,6 @@ def _():
 
 
 @app.cell
-def _(plt):
-    plt.figure()
-    for _i in range(7):
-        plt.plot([0,1],[0, _i], label=f"C{_i}", color=f"C{_i}")
-    plt.legend()
-    plt.show()
-    return
-
-
-@app.cell
 def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
     class Weather:
         def __init__(self, month, location, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
@@ -1223,7 +1213,7 @@ def _(daily_water_demand, mass_water_harvester, mofs, water_del):
 @app.cell
 def _(fig_dir, mof_to_color, plt):
     def viz_pure_mof_harvester(pure_mof_harvester, mofs):
-        fig = plt.figure(figsize=(6.4, 4))
+        fig = plt.figure(figsize=(6.4, 3.5))
         plt.bar(
             range(len(mofs)), [pure_mof_harvester.loc[mof, "mass [kg]"] for mof in mofs], 
             color=[mof_to_color[mof] for mof in mofs]
@@ -1324,7 +1314,7 @@ def _(mofs, optimize_harvester, water_del):
 @app.cell
 def _(fig_dir, mof_to_color, np, plt, weather):
     def viz_optimal_harvester(mofs, opt_mass_of_mofs):
-        fig = plt.figure(figsize=(6.4, 4))
+        fig = plt.figure(figsize=(6.4, 3.5))
         plt.bar(
             range(len(mofs)), 
             [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in mofs], 
@@ -1358,10 +1348,21 @@ def _(fig_dir, mof_to_color, plt, weather):
             m_mof = opt_mass_of_mofs.loc[mof, "mass [kg]"]
             if m_mof > 0.0:
                 ax.bar(0, m_mof, bottom=bottom, label=mof, color=mof_to_color[mof])
+                plt.text(0.5, bottom + m_mof / 2, mof, verticalalignment="center")
+                
                 bottom += m_mof
+
+                
 
         # baseline of optimal pure-MOF water harvester
         plt.axhline(pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--")
+        
+        # place a text box in upper left in axes coords
+        ax.text(0.0, pure_mof_harvester["mass [kg]"].min(), "optimal\npure-MOF harvester", fontsize=12,
+               verticalalignment='center', horizontalalignment="center", 
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.75, edgecolor='none'))
+
+        plt.ylim(0, pure_mof_harvester["mass [kg]"].min() * 1.2)
 
         plt.xlim([-1, 1])
 
@@ -1517,7 +1518,7 @@ def _(
 
         plt.plot(
             m0s, m1s, 
-            color="black", label="constraint" if d == 0 else ""
+            color="black", label="drinking water\nconstraint" if d == 0 else ""
         )
 
     # plot constant mass
@@ -1542,6 +1543,8 @@ def _(
     )
 
     plt.gca().set_aspect('equal', 'box')
+    plt.xticks([0, 10, 20, 30])
+    plt.yticks([0, 10, 20, 30])
     plt.legend(bbox_to_anchor=(1.05, 0.5), loc='center left')
     plt.savefig(fig_dir + f"/twoD_linear_program.pdf", format="pdf", bbox_inches="tight")
     plt.show()
