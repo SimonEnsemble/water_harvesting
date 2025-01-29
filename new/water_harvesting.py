@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.6"
+__generated_with = "0.10.15"
 app = marimo.App(width="medium")
 
 
@@ -11,6 +11,7 @@ def _():
     import matplotlib as mpl
     import matplotlib.pyplot as plt
     import numpy as np
+    import random
     from scipy import interpolate
     from scipy.optimize import linprog
     from dataclasses import dataclass
@@ -20,7 +21,10 @@ def _():
 
     # matplotlib styles
     from aquarel import load_theme
-    theme = load_theme("umbra_light").set_font(size=16)
+    theme = load_theme("boxy_light").set_font(size=16).set_color(palette=sns.color_palette("pastel"))
+    # .set_color(
+    #     palette=["#458588", "#d65d0e", "#98971a", "#cc241d", "#b16286", "#d79921"]
+    # )
     theme.apply()
     return (
         dataclass,
@@ -33,10 +37,17 @@ def _():
         os,
         pd,
         plt,
+        random,
         sns,
         theme,
         warnings,
     )
+
+
+@app.cell
+def _(sns):
+    sns.color_palette("pastel")
+    return
 
 
 @app.cell(hide_code=True)
@@ -85,9 +96,11 @@ def _(mo):
 
 
 @app.cell
-def _(sns):
+def _(random, sns):
     # list of MOFs
+    random.seed(97330)
     mofs = ["MOF-801", "KMF-1", "CAU-23", "MIL-160", "MOF-303", "CAU-10H", "Al-Fum", "MIP-200"]
+    random.shuffle(mofs)
 
     # maps MOF to the temperatures at which we possess adsorption data
     mof_to_data_temperatures = {
@@ -112,7 +125,7 @@ def _(sns):
         "MIP-200": 30
     }
 
-    mof_to_color = dict(zip(mofs, sns.color_palette("hls", len(mofs))))
+    mof_to_color = dict(zip(mofs, sns.color_palette("husl", len(mofs))))
 
     mof_to_marker = dict(zip(mofs, ['o', 's', '^', 'v', '>', '<', '*', 'D'])) # h next
     return (
@@ -143,9 +156,9 @@ def _(mpl):
 
     # commonly-used plot labels
     axis_labels = {
-        'pressure': 'relative humidity, $\phi=p/p_0$',
-        'adsorption': 'water uptake, $w$ [kg H$_2$O/kg MOF]',
-        'potential': 'Polanyi adsorption potential, $A(T, p/p_0)$ [kJ/mol]'
+        'pressure': 'relative humidity',
+        'adsorption': 'water uptake [kg H$_2$O/kg MOF]',
+        'potential': 'Polanyi adsorption potential [kJ/mol]'
     }
 
     # mapping temperature to color
@@ -586,7 +599,7 @@ def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
                 # markerfacecolors='none', markeredgecolors=mof_to_color[mof], 
                 marker=mof_to_marker[mof], #s=50
             )
-        plt.legend(bbox_to_anchor=(1.05, 0.5), loc='center left')
+        plt.legend(prop={'size': 12})# bbox_to_anchor=(1.05, 0.5), loc='center left')
         plt.xlim([0, 1])
         plt.ylim([0, 0.5])
         # plt.tight_layout()
@@ -695,10 +708,20 @@ def _(mo):
 
 @app.cell
 def _():
-    time_to_color = {'day': "C1", "night": "C0"}
+    time_to_color = {'day': "C1", "night": "C4"}
     time_to_color["ads"] = time_to_color["night"]
     time_to_color["des"] = time_to_color["day"]
     return (time_to_color,)
+
+
+@app.cell
+def _(plt):
+    plt.figure()
+    for _i in range(7):
+        plt.plot([0,1],[0, _i], label=f"C{_i}", color=f"C{_i}")
+    plt.legend()
+    plt.show()
+    return
 
 
 @app.cell
@@ -762,7 +785,7 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
             )
 
         def viz_timeseries(self, save=False, incl_legend=True):
-            place_to_color = {'air': "C2", 'surface': "C3"}
+            place_to_color = {'air': "k", 'surface': "k"}
 
             fig, axs = plt.subplots(2, 1, sharex=True)
             plt.xticks(rotation=90, ha='center')
@@ -770,23 +793,26 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
             # T
             axs[0].plot(
                 self.raw_data["datetime"], self.raw_data["T_HR_AVG"], 
-                label="bulk air", color=place_to_color["air"]
+                label="bulk air", color=place_to_color["air"], linewidth=2
             )
             axs[0].plot(
                 self.raw_data["datetime"], self.raw_data["SUR_TEMP"], 
-                label="soil surface", color=place_to_color["surface"]
+                label="soil surface", color=place_to_color["surface"], linewidth=2, linestyle="--"
             )
-            axs[0].set_ylabel("temperature, T [°C]")
+            axs[0].set_ylabel("temperature [°C]")
             axs[0].scatter(
                 self.wdata["night"]["datetime"], self.wdata["night"]["T_HR_AVG"],
-                marker="*", color=time_to_color["night"], zorder=10, label="adsorption\nconditions", s=100
+                edgecolors="black", clip_on=False,
+                marker="^", color=time_to_color["night"], zorder=10, label="adsorption\nconditions", s=100
             ) # nighttime air temperature
             axs[0].scatter(
                 self.wdata["day"]["datetime"], self.wdata["day"]["SUR_TEMP"],
-                marker="*", color=time_to_color["day"], zorder=10, label="desorption\nconditions", s=100
+                edgecolors="black", clip_on=False,
+                marker="v", color=time_to_color["day"], zorder=10, label="desorption\nconditions", s=100
             ) # daytime surface temperature
             axs[0].set_title(self.location)
             axs[0].set_ylim(10, 65)
+            axs[0].set_xlim(self.raw_data["datetime"].min(), self.raw_data["datetime"].max())
 
             # RH
             axs[1].plot(
@@ -795,20 +821,22 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
             )
             axs[1].plot(
                 self.raw_data["datetime"], self.raw_data["SUR_RH_HR_AVG"] / 100.0, 
-                color=place_to_color["surface"], label="air near soil surface"
+                color=place_to_color["surface"], label="near-surface air", linestyle="--"
             )
-            axs[1].set_ylabel("relative humidity, $\phi$")
+            axs[1].set_ylabel("relative humidity")
             axs[1].scatter(
                 self.wdata["night"]["datetime"], self.wdata["night"]["RH_HR_AVG"] / 100.0,
-                marker="*", color=time_to_color["night"], zorder=10, s=100,  label="adsorption conditions"
+                edgecolors="black", clip_on=False,
+                marker="^", color=time_to_color["night"], zorder=10, s=100,  label="adsorption conditions"
             ) # nighttime RH
             axs[1].scatter(
                 self.wdata["day"]["datetime"], self.wdata["day"]["SUR_RH_HR_AVG"] / 100.0,
-                marker="*", color=time_to_color["day"], zorder=10, s=100, label="desorption conditions"
+                edgecolors="black", clip_on=False,
+                marker="v", color=time_to_color["day"], zorder=10, s=100, label="desorption conditions"
             ) # day surface RH
             axs[1].set_ylim(0, 0.75)
             if incl_legend:
-                axs[1].legend(prop={'size': 12}, ncol=2)# bbox_to_anchor=(1.05, 0.5), loc="center left")
+                axs[1].legend(prop={'size': 12}, ncol=2, bbox_to_anchor=(0., 1.05, 1.0, .1), loc="center")#, loc="center left")
             # already got legend above
             if save:
                 plt.savefig(fig_dir + f"/weather_{self.location}_{self.month}.pdf", format="pdf", bbox_inches="tight")
@@ -1082,8 +1110,8 @@ def _(
             # condition
             plt.scatter(
                 p_ovr_p0, mof_water_ads[mof].predict_water_adsorption(T, p_ovr_p0), 
-                marker="*", s=200, zorder=100, color=time_to_color[ads_or_des], 
-                label="adsorption" if ads_or_des == "ads" else "desorption"
+                marker="^" if ads_or_des == "ads" else "v", s=200, zorder=100, color=time_to_color[ads_or_des], 
+                label="adsorption" if ads_or_des == "ads" else "desorption", edgecolors="black", clip_on=False
             )
         plt.title(mof)
         date = water_del_MOF.loc[day_id, "date"].date()
@@ -1128,12 +1156,12 @@ def _(plt, time_to_color):
                      color="gray", linestyle="--"
             )
             plt.scatter(
-                water_del["date"], water_del[mof + " day ads [g/g]"], color=time_to_color["day"], marker="o", 
-                label="day" if i == 0 else ""
+                water_del["date"], water_del[mof + " day ads [g/g]"], color=time_to_color["day"], marker="^", 
+                label="day" if i == 0 else "", edgecolor="black", s=100, clip_on=False
             )
             plt.scatter(
-                water_del["date"], water_del[mof + " night ads [g/g]"], color=time_to_color["night"], marker="s",
-                label="night" if i == 0 else ""
+                water_del["date"], water_del[mof + " night ads [g/g]"], color=time_to_color["night"], marker="v",
+                label="night" if i == 0 else "", edgecolor="black", s=100, clip_on=False
             )
         plt.ylim(ymin=0)
         plt.legend(loc="center")
@@ -1468,7 +1496,7 @@ def _(
     # plot optimal composition
     plt.scatter(
         _opt_mass_of_mofs.loc[_mofs[0], "mass [kg]"], _opt_mass_of_mofs.loc[_mofs[1], "mass [kg]"], 
-        s=200, marker="*", clip_on=False, zorder=25, color="C1", label="optimal\ncomposition"
+        s=250, marker="*", clip_on=False, zorder=25, color="C0", edgecolor="black", label="optimal\ncomposition"
     )
 
     max_mass = 30.0 # _opt_mass_of_mofs["mass [kg]"].max() * 2.5
@@ -1493,24 +1521,24 @@ def _(
         )
 
     # plot constant mass
-    plt.plot(m0s, _min_mass - m0s, color="C0", linestyle="--", label="iso-mass")
+    plt.plot(m0s, _min_mass - m0s, color="C5", linestyle="--", label=f"mass = {_min_mass:.2f} kg")
 
     # shade feasible region (works for two active constraints)
     ids_feasible = m1s_feasible < max_mass
     plt.fill_between(
         m0s[ids_feasible], m1s_feasible[ids_feasible], 
         np.ones(np.sum(ids_feasible)) * max_mass,
-        color="C3", label="feasible region"
+        color="C2", label="feasible region"
     )
 
     # pure-MOF harvester
     plt.scatter(
         _pure_mof_harvester.loc[_mofs[0], "mass [kg]"], 0.0, 
-        label="optimal\npure-MOF bed", color="C5", clip_on=False, s=100, zorder=100
+        label="optimal\npure-MOF bed", color="C0", clip_on=False, s=100, zorder=100, edgecolor="black"
     )
     plt.scatter(
         0.0, _pure_mof_harvester.loc[_mofs[1], "mass [kg]"], 
-        color="C5", clip_on=False, s=100, zorder=100
+        color="C0", clip_on=False, s=100, zorder=100, edgecolor="black"
     )
 
     plt.gca().set_aspect('equal', 'box')
@@ -1521,6 +1549,12 @@ def _(
     _water_del.loc[_opt_info["active constraints"]]
     _pure_mof_harvester
     return d, d_0, d_1, ids_feasible, m0s, m1s, m1s_feasible, max_mass
+
+
+@app.cell
+def _(sns):
+    sns.color_palette("pastel")
+    return
 
 
 @app.cell
