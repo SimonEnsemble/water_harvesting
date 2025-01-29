@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.6"
+__generated_with = "0.10.15"
 app = marimo.App(width="medium")
 
 
@@ -127,7 +127,7 @@ def _(random, sns):
 
     mof_to_color = dict(zip(mofs, sns.color_palette("husl", len(mofs))))
 
-    mof_to_marker = dict(zip(mofs, ['o', 's', '^', 'v', '>', '<', '*', 'D'])) # h next
+    mof_to_marker = dict(zip(mofs, ['o', 's', 'd', 'X', '>', '<', 'P', 'D'])) # h next
     return (
         mof_to_color,
         mof_to_data_temperatures,
@@ -1084,6 +1084,7 @@ def _(
         fig = plt.figure()
         plt.xlabel(axis_labels["pressure"])
         plt.ylabel(axis_labels["adsorption"])
+        plt.xlim(0.0, 1.0)
 
         p_ovr_p0s = np.linspace(0.01, 1, 100)
         for ads_or_des in ["ads", "des"]:
@@ -1094,7 +1095,7 @@ def _(
             # adsorption isotherm
             plt.plot(
                     p_ovr_p0s, [mof_water_ads[mof].predict_water_adsorption(T, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
-                    color=T_to_color(T), linewidth=3, label=f"T = {T:.2f} °C"
+                    color=T_to_color(T), linewidth=3, label=f"T = {T:.1f} °C"
             )
 
             # condition
@@ -1118,18 +1119,20 @@ def _(mof_water_ads, viz_water_delivery, water_del):
 
 
 @app.cell
-def _(mof_to_color, plt):
+def _(mof_to_color, mof_to_marker, plt):
     def viz_water_delivery_time_series(water_del):
         # infer mof list
         mofs = [col.split()[0] for col in water_del.columns if "delivery" in col]
 
-        plt.figure()
-        plt.ylabel("water delivery [kg H$_2$O/kg MOF]")
+        plt.figure(figsize=(6.4, 3.5))
+        plt.ylabel("water delivery\n[kg H$_2$O/kg MOF]")
         plt.xticks(rotation=90, ha='center')
         for mof in mofs:
-            plt.plot(water_del["date"], water_del[mof + " water delivery [g/g]"], marker="s", 
-                     color=mof_to_color[mof], label=mof)
+            plt.plot(water_del["date"], water_del[mof + " water delivery [g/g]"], marker=mof_to_marker[mof], 
+                     color=mof_to_color[mof], label=mof, clip_on=False
+            )
         plt.legend(bbox_to_anchor=(1.05, 1))
+        plt.ylim(ymin=0.0)
         plt.show()
     return (viz_water_delivery_time_series,)
 
@@ -1137,8 +1140,8 @@ def _(mof_to_color, plt):
 @app.cell
 def _(plt, time_to_color):
     def viz_water_delivery_time_series_mof(water_del, mof):    
-        plt.figure()
-        plt.ylabel("water adsorption [kg H$_2$O/kg MOF]")
+        plt.figure(figsize=(6.4, 3.5))
+        plt.ylabel("water adsorption\n[kg H$_2$O/kg MOF]")
         plt.xticks(rotation=90, ha='center')
         for i in range(water_del.shape[0]):
             plt.vlines(
@@ -1347,30 +1350,29 @@ def _(fig_dir, mof_to_color, plt, weather):
         for mof in mofs:
             m_mof = opt_mass_of_mofs.loc[mof, "mass [kg]"]
             if m_mof > 0.0:
-                ax.bar(0, m_mof, bottom=bottom, label=mof, color=mof_to_color[mof])
-                plt.text(0.5, bottom + m_mof / 2, mof, verticalalignment="center")
-                
-                bottom += m_mof
+                ax.bar(0, m_mof, bottom=bottom, label=mof, color=mof_to_color[mof], edgecolor="k")
+                plt.text(0.5, bottom + m_mof / 2, mof, verticalalignment="center", fontsize=12)
 
-                
+                bottom += m_mof
 
         # baseline of optimal pure-MOF water harvester
         plt.axhline(pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--")
-        
+
         # place a text box in upper left in axes coords
         ax.text(0.0, pure_mof_harvester["mass [kg]"].min(), "optimal\npure-MOF harvester", fontsize=12,
-               verticalalignment='center', horizontalalignment="center", 
-                bbox=dict(boxstyle='round', facecolor='white', alpha=0.75, edgecolor='none'))
+                verticalalignment='center', horizontalalignment="center", 
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.75, edgecolor='none')
+        )
 
         plt.ylim(0, pure_mof_harvester["mass [kg]"].min() * 1.2)
 
-        plt.xlim([-1, 1])
+        plt.xlim([-1.75, 1.75])
 
         # Add labels and title
         ax.set_xticks([0], [""])
         ax.set_ylabel('mass [kg]')
-        ax.set_title('optimal harvester\ncomposition')
-        ax.legend(bbox_to_anchor=(1.0, 1.05))
+        ax.set_title('optimal harvester\ncomposition', fontsize=16)
+        # ax.legend(bbox_to_anchor=(1.0, 1.05))
         plt.savefig(
             fig_dir + f"/opt_harvester_composition2_{weather.location}_{weather.month}.pdf", 
             format="pdf", bbox_inches="tight"
@@ -1408,14 +1410,15 @@ def _(fig_dir, mof_to_color, plt, weather):
         # list of MOFs comprising water harvester
         mofs = [mof for mof in opt_mass_of_mofs.index if opt_mass_of_mofs.loc[mof, "mass [kg]"] > 0]
 
-        plt.figure()
+        plt.figure(figsize=(6.4, 3.5))
         plt.ylabel("water delivery [kg H$_2$O]")
         plt.xticks(rotation=90, ha='center')
         bottom = [0 for d in water_del["date"]]
         for mof in mofs:
             w_mof = water_del[mof + " water delivery [g/g]"] * opt_mass_of_mofs.loc[mof, "mass [kg]"]
             plt.bar(water_del["date"], w_mof, 
-                    color=mof_to_color[mof], label=mof, bottom=bottom)
+                    color=mof_to_color[mof], label=mof, bottom=bottom, edgecolor="k"
+            )
             bottom = bottom + w_mof
         plt.axhline(y=daily_water_demand, color="black", linestyle="--", label="demand")
         plt.legend(bbox_to_anchor=(1.05, 1))
@@ -1497,7 +1500,7 @@ def _(
     # plot optimal composition
     plt.scatter(
         _opt_mass_of_mofs.loc[_mofs[0], "mass [kg]"], _opt_mass_of_mofs.loc[_mofs[1], "mass [kg]"], 
-        s=250, marker="*", clip_on=False, zorder=25, color="C0", edgecolor="black", label="optimal\ncomposition"
+        s=250, marker="*", clip_on=False, zorder=25, color="C1", edgecolor="black", label="optimal\ncomposition"
     )
 
     max_mass = 30.0 # _opt_mass_of_mofs["mass [kg]"].max() * 2.5
@@ -1557,11 +1560,6 @@ def _(
 @app.cell
 def _(sns):
     sns.color_palette("pastel")
-    return
-
-
-@app.cell
-def _():
     return
 
 
