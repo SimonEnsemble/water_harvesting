@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.2"
+__generated_with = "0.10.15"
 app = marimo.App(width="medium")
 
 
@@ -750,6 +750,7 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
 
             self.raw_data = raw_data
 
+
         def _process_datetime_and_filter(self, days):
             # convert to pandas datetime
             self.raw_data["date"] = pd.to_datetime(self.raw_data["LST_DATE"])
@@ -800,7 +801,7 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
                 edgecolors="black", clip_on=False,
                 marker="v", color=time_to_color["day"], zorder=10, label="desorption\nconditions", s=100
             ) # daytime surface temperature
-            axs[0].set_title(self.location)
+            # axs[0].set_title(self.location)
             axs[0].set_ylim(10, 65)
             axs[0].set_xlim(self.raw_data["datetime"].min(), self.raw_data["datetime"].max())
 
@@ -933,6 +934,12 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
     return (Weather,)
 
 
+@app.cell
+def _(weather):
+    weather.raw_data
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
@@ -950,6 +957,8 @@ def _(mo):
 def _(Weather):
     weather = Weather(6, "Tucson", day_min=1, day_max=10)
     # weather = Weather(6, "Socorro", day_min=1, day_max=10)
+
+    weather = Weather(8, "Tucson", day_min=1, day_max=10)
     weather.raw_data
     return (weather,)
 
@@ -1316,17 +1325,47 @@ def _(mofs, optimize_harvester, water_del):
 
 @app.cell
 def _(fig_dir, mof_to_color, np, plt, weather):
-    def viz_optimal_harvester(mofs, opt_mass_of_mofs):
+    def viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester):
         fig = plt.figure(figsize=(6.4, 3.5))
+        plt.ylabel("mass [kg]")
+
+        # mass of each MOF
         plt.bar(
             range(len(mofs)), 
             [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in mofs], 
-            color=[mof_to_color[mof] for mof in mofs]
+            color=[mof_to_color[mof] for mof in mofs], edgecolor="black"
         )
-        plt.xticks(range(len(mofs)), mofs, rotation=90)
-        plt.ylabel("mass [kg]")
+
+        # baseline of optimal pure-MOF water harvester
+        plt.axhline(pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--")
+
+        # total mass of device, broken down
+        x_pos = len(mofs) + 1.5
+        bottom = 0
+        for mof in opt_mass_of_mofs.sort_values("mass [kg]", ascending=False).index:
+            m_mof = opt_mass_of_mofs.loc[mof, "mass [kg]"]
+            if m_mof > 0.0:
+                plt.bar(x_pos, m_mof, bottom=bottom, color=mof_to_color[mof], edgecolor="k")
+                plt.text(x_pos + 0.5, bottom + m_mof / 2, mof, verticalalignment="center", fontsize=10)
+
+                bottom += m_mof
+
+        #  handle x-ticks
+        plt.xticks([m for m in range(len(mofs))] + [x_pos], mofs + ["total"], rotation=90)
+        plt.gca().get_xticklabels()[-1].set_fontweight('bold')
+        
+        # print total mass as legend
         total_mass = np.round(opt_mass_of_mofs["mass [kg]"].sum(), decimals=2)
         plt.legend(title=f"total mass:\n  {total_mass} kg")
+        plt.xlim(-0.75, x_pos+2)
+
+        # highlight second plot
+        xs = np.linspace(x_pos-1, x_pos+2, 100)
+        plt.fill_betweenx(
+            [0, 3], len(mofs), x_pos+2, alpha=0.05, zorder=0, color="black",
+            transform=plt.gca().get_xaxis_transform()
+        )
+        # save
         plt.savefig(
             fig_dir + f"/opt_harvester_composition_{weather.location}_{weather.month}.pdf", 
             format="pdf", bbox_inches="tight"
@@ -1336,54 +1375,8 @@ def _(fig_dir, mof_to_color, np, plt, weather):
 
 
 @app.cell
-def _(mofs, opt_mass_of_mofs, viz_optimal_harvester):
-    viz_optimal_harvester(mofs, opt_mass_of_mofs)
-    return
-
-
-@app.cell
-def _(fig_dir, mof_to_color, plt, weather):
-    def viz_optimal_harvester2(mofs, opt_mass_of_mofs, pure_mof_harvester):
-        fig, ax = plt.subplots(figsize=(2.5, 4))
-
-        bottom = 0
-        for mof in mofs:
-            m_mof = opt_mass_of_mofs.loc[mof, "mass [kg]"]
-            if m_mof > 0.0:
-                ax.bar(0, m_mof, bottom=bottom, label=mof, color=mof_to_color[mof], edgecolor="k")
-                plt.text(0.5, bottom + m_mof / 2, mof, verticalalignment="center", fontsize=12)
-
-                bottom += m_mof
-
-        # baseline of optimal pure-MOF water harvester
-        plt.axhline(pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--")
-
-        # place a text box in upper left in axes coords
-        ax.text(0.0, pure_mof_harvester["mass [kg]"].min(), "optimal\npure-MOF harvester", fontsize=12,
-                verticalalignment='center', horizontalalignment="center", 
-                bbox=dict(boxstyle='round', facecolor='white', alpha=0.75, edgecolor='none')
-        )
-
-        plt.ylim(0, pure_mof_harvester["mass [kg]"].min() * 1.2)
-
-        plt.xlim([-1.75, 1.75])
-
-        # Add labels and title
-        ax.set_xticks([0], [""])
-        ax.set_ylabel('mass [kg]')
-        ax.set_title('optimal harvester\ncomposition', fontsize=16)
-        # ax.legend(bbox_to_anchor=(1.0, 1.05))
-        plt.savefig(
-            fig_dir + f"/opt_harvester_composition2_{weather.location}_{weather.month}.pdf", 
-            format="pdf", bbox_inches="tight"
-        )
-        plt.show()
-    return (viz_optimal_harvester2,)
-
-
-@app.cell
-def _(mofs, opt_mass_of_mofs, pure_mof_harvester, viz_optimal_harvester2):
-    viz_optimal_harvester2(mofs, opt_mass_of_mofs, pure_mof_harvester)
+def _(mofs, opt_mass_of_mofs, pure_mof_harvester, viz_optimal_harvester):
+    viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester)
     return
 
 
