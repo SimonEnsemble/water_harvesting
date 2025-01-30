@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.15"
+__generated_with = "0.10.17"
 app = marimo.App(width="medium")
 
 
@@ -603,7 +603,7 @@ def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
         plt.xlim([0, 1])
         plt.ylim([0, 0.5])
         # plt.tight_layout()
-        plt.savefig(fig_dir + "/water_adsorption_data_all_mofs.pdf", format="pdf", bbox_inches='tight')
+        plt.savefig(fig_dir + "/MOF_water_adsorption.pdf", format="pdf", bbox_inches='tight')
         plt.show()
     return (viz_all_measured_adsorption_isotherms,)
 
@@ -715,7 +715,22 @@ def _():
 
 
 @app.cell
-def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
+def _():
+    city_to_state = {'Tucson': 'AZ', 'Socorro': 'NM'}
+    return (city_to_state,)
+
+
+@app.cell
+def _(
+    city_to_state,
+    fig_dir,
+    np,
+    os,
+    pd,
+    plt,
+    time_to_color,
+    water_vapor_presssure,
+):
     class Weather:
         def __init__(self, month, location, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
             self.month = month
@@ -737,6 +752,12 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
 
             self._gen_ads_des_conditions()
 
+            # for plots
+            _start_date = self.ads_des_conditions["date"].min().date()
+            _end_data = self.ads_des_conditions["date"].max().date()
+            self.loc_title = f"{self.location}, {city_to_state[self.location]}."
+            self.loc_timespan_title = f"{self.loc_title} {_start_date} to {_end_data}."
+            
         def _read_raw_weather_data(self):
             wdata_dir = "data/NOAA_weather_data"
             wfiles = os.listdir(wdata_dir)
@@ -775,14 +796,13 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
                         water_vapor_presssure(day["SUR_TEMP"]), axis=1
             )
 
-        def viz_timeseries(self, save=False, incl_legend=True, title=None):
+        def viz_timeseries(self, save=False, incl_legend=True):
             place_to_color = {'air': "k", 'surface': "k"}
 
             fig, axs = plt.subplots(2, 1, sharex=True)#, figsize=(6.4*0.8, 4.8*.8))
             plt.xticks(rotation=90, ha='center')
 
-            if title:
-                axs[0].set_title(title)
+            axs[0].set_title(self.loc_title)
 
             # T
             axs[0].plot(
@@ -835,7 +855,7 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
                 axs[1].legend(prop={'size': 12}, ncol=2, bbox_to_anchor=(0., 1.0, 1.0, .1), loc="center")#, loc="center left")
             # already got legend above
             if save:
-                plt.savefig(fig_dir + f"/weather_{self.location}_{self.month}.pdf", format="pdf", bbox_inches="tight")
+                plt.savefig(fig_dir + f"/weather_{self.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
 
             plt.show()
 
@@ -861,7 +881,7 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
 
             # RH
             axs[1].set_ylabel("RH [%]")
-            
+
             # axs[1].set_ylim([0, 100])
             axs[1].plot(
                 self.daynight_wdata["datetime"], self.daynight_wdata["night_RH_HR_AVG"], 
@@ -962,23 +982,10 @@ def _(mo):
 @app.cell
 def _(Weather):
     weather = Weather(6, "Tucson", day_min=1, day_max=10)
-    # weather = Weather(6, "Socorro", day_min=1, day_max=10)
-    weather = Weather(8, "Tucson", day_min=11, day_max=20)
+    weather = Weather(6, "Socorro", day_min=1, day_max=10)
+    # weather = Weather(8, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
-
-
-@app.cell
-def _(weather):
-    _start_date = weather.ads_des_conditions["date"].min().date()
-    _end_data = weather.ads_des_conditions["date"].max().date()
-
-    city_to_state = {'Tucson': 'AZ', 'Socorro': 'NM'}
-
-    LOC_TITLE = f"{weather.location}, {city_to_state[weather.location]}."
-    LOC_TIMESPANE_TITLE = f"{LOC_TITLE} {_start_date} to {_end_data}."
-    LOC_TIMESPANE_TITLE
-    return LOC_TIMESPANE_TITLE, LOC_TITLE, city_to_state
 
 
 @app.cell
@@ -1000,8 +1007,8 @@ def _(weather):
 
 
 @app.cell
-def _(LOC_TITLE, weather):
-    weather.viz_timeseries(save=True, incl_legend=True, title=LOC_TITLE)
+def _(weather):
+    weather.viz_timeseries(save=True, incl_legend=True)
     return
 
 
@@ -1097,7 +1104,6 @@ def _(water_del):
 
 @app.cell
 def _(
-    LOC_TITLE,
     T_to_color,
     axis_labels,
     fig_dir,
@@ -1106,7 +1112,7 @@ def _(
     time_to_color,
     trim_water_delivery_data,
 ):
-    def viz_water_delivery(water_del, mof, day_id, mof_water_ads):
+    def viz_water_delivery(water_del, mof, day_id, mof_water_ads, weather):
         water_del_MOF = trim_water_delivery_data(water_del, mof)
 
         fig = plt.figure(figsize=(6.4*0.8, 4.8*.8))
@@ -1136,22 +1142,28 @@ def _(
             )
         plt.title(mof)
         date = water_del_MOF.loc[day_id, "date"].date()
-        lg = plt.legend(title=f"{date} in {LOC_TITLE}", prop={'size': 14})
+        lg = plt.legend(title=f"{date} in {weather.loc_title}", prop={'size': 12})
         lg.get_title().set_fontsize(14) 
-        plt.savefig(fig_dir + f"/{mof}_ads_des_{date}.pdf", format="pdf", bbox_inches="tight")
+        plt.savefig(fig_dir + f"/{mof}_ads_des_{date}_{weather.loc_title}.pdf", format="pdf", bbox_inches="tight")
         plt.show()
     return (viz_water_delivery,)
 
 
 @app.cell
-def _(mof_water_ads, viz_water_delivery, water_del):
-    viz_water_delivery(water_del, "KMF-1", 1, mof_water_ads)
+def _(mof_water_ads, viz_water_delivery, water_del, weather):
+    viz_water_delivery(water_del, "MIL-160", 2, mof_water_ads, weather)
     return
 
 
 @app.cell
-def _(LOC_TITLE, fig_dir, mof_to_color, mof_to_marker, plt):
-    def viz_water_delivery_time_series(water_del):
+def _(mof_water_ads, viz_water_delivery, water_del, weather):
+    viz_water_delivery(water_del, "CAU-23", 2, mof_water_ads, weather)
+    return
+
+
+@app.cell
+def _(fig_dir, mof_to_color, mof_to_marker, plt):
+    def viz_water_delivery_time_series(water_del, weather):
         # infer mof list
         mofs = [col.split()[0] for col in water_del.columns if "delivery" in col]
 
@@ -1164,8 +1176,10 @@ def _(LOC_TITLE, fig_dir, mof_to_color, mof_to_marker, plt):
             )
         plt.legend(bbox_to_anchor=(1.05, 1))
         plt.ylim(ymin=0.0)
-        plt.title(LOC_TITLE)
-        plt.savefig(fig_dir + f"/daily_water_delivery_each_mof.pdf", format="pdf", bbox_inches="tight")
+        plt.title(weather.loc_title)
+        plt.savefig(
+            fig_dir + f"/daily_water_delivery_by_mof_{weather.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight"
+        )
         plt.show()
     return (viz_water_delivery_time_series,)
 
@@ -1203,8 +1217,8 @@ def _(viz_water_delivery_time_series_mof, water_del):
 
 
 @app.cell
-def _(viz_water_delivery_time_series, water_del):
-    viz_water_delivery_time_series(water_del)
+def _(viz_water_delivery_time_series, water_del, weather):
+    viz_water_delivery_time_series(water_del, weather)
     return
 
 
@@ -1348,8 +1362,8 @@ def _(mofs, optimize_harvester, water_del):
 
 
 @app.cell
-def _(fig_dir, mof_to_color, np, plt, weather):
-    def viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester, title=None):
+def _(fig_dir, mof_to_color, np, plt):
+    def viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester, weather):
         fig = plt.figure(figsize=(6.4 *0.8, 4.8*.8))
         plt.ylabel("mass [kg MOF]")
 
@@ -1385,7 +1399,7 @@ def _(fig_dir, mof_to_color, np, plt, weather):
         #  handle x-ticks
         plt.xticks([m for m in range(len(mofs))] + [x_pos], mofs + ["total"], rotation=90)
         plt.gca().get_xticklabels()[-1].set_fontweight('bold')
-        
+
         # print total mass as legend
         total_mass = np.round(opt_mass_of_mofs["mass [kg]"].sum(), decimals=2)
         lg = plt.legend(title=f"total mass:\n  {total_mass} kg")
@@ -1400,12 +1414,11 @@ def _(fig_dir, mof_to_color, np, plt, weather):
             transform=plt.gca().get_xaxis_transform()
         )
 
-        if title:
-            plt.title(title)
+        plt.title(weather.loc_timespan_title)
 
         # save
         plt.savefig(
-            fig_dir + f"/opt_harvester_composition_{weather.location}_{weather.month}.pdf", 
+            fig_dir + f"/opt_composition_{weather.loc_timespan_title}.pdf", 
             format="pdf", bbox_inches="tight"
         )
         plt.show()
@@ -1414,22 +1427,13 @@ def _(fig_dir, mof_to_color, np, plt, weather):
 
 @app.cell
 def _(
-    LOC_TIMESPANE_TITLE,
     mofs,
     opt_mass_of_mofs,
     pure_mof_harvester,
     viz_optimal_harvester,
+    weather,
 ):
-    viz_optimal_harvester(
-        mofs, opt_mass_of_mofs, pure_mof_harvester,
-        title=LOC_TIMESPANE_TITLE
-    )
-    return
-
-
-@app.cell
-def _(weather):
-    weather.ads_des_conditions["date"].min().date()
+    viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester, weather)
     return
 
 
@@ -1451,8 +1455,8 @@ def _(np, opt_info, weather):
 
 
 @app.cell
-def _(LOC_TITLE, fig_dir, mof_to_color, plt, weather):
-    def viz_opt_water_delivery_time_series(water_del, opt_mass_of_mofs, daily_water_demand):
+def _(fig_dir, mof_to_color, plt):
+    def viz_opt_water_delivery_time_series(water_del, opt_mass_of_mofs, daily_water_demand, weather):
         # list of MOFs comprising water harvester
         mofs = [mof for mof in opt_mass_of_mofs.sort_values("mass [kg]", ascending=False).index 
                 if opt_mass_of_mofs.loc[mof, "mass [kg]"] > 0
@@ -1470,9 +1474,9 @@ def _(LOC_TITLE, fig_dir, mof_to_color, plt, weather):
             bottom = bottom + w_mof
         plt.axhline(y=daily_water_demand, color="black", linestyle="--", label="demand")
         plt.legend(prop={'size': 10}, loc="upper left")# bbox_to_anchor=(1.05, 1), )
-        plt.title(LOC_TITLE)
+        plt.title(weather.loc_title)
         plt.savefig(
-            fig_dir + f"/opt_harvester_delivery_{weather.location}_{weather.month}.pdf", 
+            fig_dir + f"/opt_water_delivery_{weather.loc_timespan_title}.pdf", 
             format="pdf", bbox_inches="tight"
         )
         plt.show()
@@ -1485,8 +1489,9 @@ def _(
     opt_mass_of_mofs,
     viz_opt_water_delivery_time_series,
     water_del,
+    weather,
 ):
-    viz_opt_water_delivery_time_series(water_del, opt_mass_of_mofs, daily_water_demand)
+    viz_opt_water_delivery_time_series(water_del, opt_mass_of_mofs, daily_water_demand, weather)
     return
 
 
@@ -1523,7 +1528,6 @@ def _(mo):
 @app.cell
 def _(
     Weather,
-    city_to_state,
     daily_water_demand,
     fig_dir,
     mass_water_harvester,
@@ -1545,10 +1549,6 @@ def _(
 
     _start_date = _weather.ads_des_conditions["date"].min().date()
     _end_data = _weather.ads_des_conditions["date"].max().date()
-
-    _LOC_TITLE = f"{_weather.location}, {city_to_state[_weather.location]}."
-    _TIMESPAN_TITLE = f"{_start_date} to {_end_data}."
-    _TIMESPAN_TITLE
 
     plt.figure(figsize=(6.4 *0.8, 4.8*.8))
     plt.xlabel(f"mass of {_mofs[0]} [kg]")
@@ -1605,14 +1605,18 @@ def _(
     plt.gca().set_aspect('equal', 'box')
     plt.xticks([0, 10, 20, 30])
     plt.yticks([0, 10, 20, 30])
-    lg = plt.legend(title=_LOC_TITLE + '\n' + _TIMESPAN_TITLE, bbox_to_anchor=(1.05, 0.5), loc='center left', prop={'size':14})
-    lg.get_title().set_fontsize(14) 
-    plt.savefig(fig_dir + f"/twoD_linear_program.pdf", format="pdf", bbox_inches="tight")
+
+    # split into two lines
+    _lg_title = _weather.loc_title + '\n' + _weather.loc_timespan_title.split(".")[1] + '.'
+    _lg = plt.legend(title=_lg_title, bbox_to_anchor=(1.05, 0.5), loc='center left', prop={'size':14})
+    _lg.get_title().set_fontsize(14) 
+
+    plt.savefig(fig_dir + f"/twoD_linear_program_{_weather.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
     plt.show()
 
     _water_del.loc[_opt_info["active constraints"]]
     _pure_mof_harvester
-    return d, d_0, d_1, ids_feasible, lg, m0s, m1s, m1s_feasible, max_mass
+    return d, d_0, d_1, ids_feasible, m0s, m1s, m1s_feasible, max_mass
 
 
 @app.cell
