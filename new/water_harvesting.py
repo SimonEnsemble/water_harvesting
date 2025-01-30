@@ -982,7 +982,7 @@ def _(mo):
 @app.cell
 def _(Weather):
     weather = Weather(6, "Tucson", day_min=1, day_max=10)
-    weather = Weather(6, "Socorro", day_min=1, day_max=10)
+    # weather = Weather(6, "Socorro", day_min=1, day_max=10)
     # weather = Weather(8, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
@@ -1416,6 +1416,9 @@ def _(fig_dir, mof_to_color, np, plt):
 
         plt.title(weather.loc_timespan_title)
 
+        if weather.location == "Tucson":
+            plt.ylim(0, 7)
+                
         # save
         plt.savefig(
             fig_dir + f"/opt_composition_{weather.loc_timespan_title}.pdf", 
