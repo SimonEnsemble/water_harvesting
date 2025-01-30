@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.15"
+__generated_with = "0.10.2"
 app = marimo.App(width="medium")
 
 
@@ -806,25 +806,25 @@ def _(fig_dir, np, os, pd, plt, time_to_color, water_vapor_presssure):
 
             # RH
             axs[1].plot(
-                self.raw_data["datetime"], self.raw_data["RH_HR_AVG"] / 100.0, 
+                self.raw_data["datetime"], self.raw_data["RH_HR_AVG"], 
                 color=place_to_color["air"], label="bulk air"
             )
             axs[1].plot(
-                self.raw_data["datetime"], self.raw_data["SUR_RH_HR_AVG"] / 100.0, 
+                self.raw_data["datetime"], self.raw_data["SUR_RH_HR_AVG"], 
                 color=place_to_color["surface"], label="near-surface air", linestyle="--"
             )
-            axs[1].set_ylabel("relative humidity")
+            axs[1].set_ylabel("relative humidity [%]")
             axs[1].scatter(
-                self.wdata["night"]["datetime"], self.wdata["night"]["RH_HR_AVG"] / 100.0,
+                self.wdata["night"]["datetime"], self.wdata["night"]["RH_HR_AVG"],
                 edgecolors="black", clip_on=False,
                 marker="^", color=time_to_color["night"], zorder=10, s=100,  label="adsorption conditions"
             ) # nighttime RH
             axs[1].scatter(
-                self.wdata["day"]["datetime"], self.wdata["day"]["SUR_RH_HR_AVG"] / 100.0,
+                self.wdata["day"]["datetime"], self.wdata["day"]["SUR_RH_HR_AVG"],
                 edgecolors="black", clip_on=False,
                 marker="v", color=time_to_color["day"], zorder=10, s=100, label="desorption conditions"
             ) # day surface RH
-            axs[1].set_ylim(0, 0.75)
+            axs[1].set_ylim(0, 75)
             if incl_legend:
                 axs[1].legend(prop={'size': 12}, ncol=2, bbox_to_anchor=(0., 1.05, 1.0, .1), loc="center")#, loc="center left")
             # already got legend above
@@ -949,7 +949,7 @@ def _(mo):
 @app.cell
 def _(Weather):
     weather = Weather(6, "Tucson", day_min=1, day_max=10)
-    weather = Weather(6, "Socorro", day_min=1, day_max=10)
+    # weather = Weather(6, "Socorro", day_min=1, day_max=10)
     weather.raw_data
     return (weather,)
 
