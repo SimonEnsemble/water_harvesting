@@ -1605,7 +1605,7 @@ def _(
 
         plt.plot(
             m0s, m1s, 
-            color="black", label="drinking water\nconstraint" if d == 0 else ""
+            color="black", label="drinking water\ndelivery constraint" if d == 0 else ""
         )
 
     # plot constant mass
