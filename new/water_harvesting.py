@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.17"
+__generated_with = "0.11.0"
 app = marimo.App(width="medium")
 
 
@@ -10,6 +10,7 @@ def _():
     import pandas as pd
     import matplotlib as mpl
     import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
     import numpy as np
     import random
     from scipy import interpolate
@@ -26,13 +27,20 @@ def _():
     #     palette=["#458588", "#d65d0e", "#98971a", "#cc241d", "#b16286", "#d79921"]
     # )
     theme.apply()
+
+    # date format
+    my_date_format_str = '%b-%d'
+    my_date_format = mdates.DateFormatter(my_date_format_str)
     return (
         dataclass,
         interpolate,
         linprog,
         load_theme,
+        mdates,
         mo,
         mpl,
+        my_date_format,
+        my_date_format_str,
         np,
         os,
         pd,
@@ -724,6 +732,8 @@ def _():
 def _(
     city_to_state,
     fig_dir,
+    my_date_format,
+    my_date_format_str,
     np,
     os,
     pd,
@@ -753,11 +763,11 @@ def _(
             self._gen_ads_des_conditions()
 
             # for plots
-            _start_date = self.ads_des_conditions["date"].min().date()
-            _end_data = self.ads_des_conditions["date"].max().date()
+            _start_date = self.ads_des_conditions["date"].min().strftime(my_date_format_str)# .date()
+            _end_data = self.ads_des_conditions["date"].max().strftime(my_date_format_str)# .date()
             self.loc_title = f"{self.location}, {city_to_state[self.location]}."
             self.loc_timespan_title = f"{self.loc_title} {_start_date} to {_end_data}."
-            
+
         def _read_raw_weather_data(self):
             wdata_dir = "data/NOAA_weather_data"
             wfiles = os.listdir(wdata_dir)
@@ -851,8 +861,9 @@ def _(
             ) # day surface RH
             axs[1].set_ylim(0, 1)
             axs[1].set_yticks([0.2 * _i for _i in range(6)])
+            axs[1].xaxis.set_major_formatter(my_date_format)
             if incl_legend:
-                axs[1].legend(prop={'size': 12}, ncol=2, bbox_to_anchor=(0., 1.0, 1.0, .1), loc="center")#, loc="center left")
+                axs[1].legend(prop={'size': 13}, ncol=2, bbox_to_anchor=(0., 1.0, 1.0, .1), loc="center")#, loc="center left")
             # already got legend above
             if save:
                 plt.savefig(fig_dir + f"/weather_{self.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
@@ -989,14 +1000,20 @@ def _(Weather):
 
 
 @app.cell
-def _(weather):
-    (weather.raw_data["T_HR_AVG"] < -990.0).sum()
+def _(w, weather):
+    w(weather.raw_data["T_HR_AVG"] < -990.0).sum()
     return
 
 
 @app.cell
 def _(weather):
     weather.wdata
+    return
+
+
+@app.cell
+def _(weather):
+    weather.wdata["night"].datetime
     return
 
 
@@ -1107,6 +1124,7 @@ def _(
     T_to_color,
     axis_labels,
     fig_dir,
+    my_date_format_str,
     np,
     plt,
     time_to_color,
@@ -1141,7 +1159,7 @@ def _(
                 label="adsorption" if ads_or_des == "ads" else "desorption", edgecolors="black", clip_on=False
             )
         plt.title(mof)
-        date = water_del_MOF.loc[day_id, "date"].date()
+        date = water_del_MOF.loc[day_id, "date"].strftime(my_date_format_str)# date()
         lg = plt.legend(title=f"{date} in {weather.loc_title}", prop={'size': 12})
         lg.get_title().set_fontsize(14) 
         plt.savefig(fig_dir + f"/{mof}_ads_des_{date}_{weather.loc_title}.pdf", format="pdf", bbox_inches="tight")
@@ -1162,7 +1180,7 @@ def _(mof_water_ads, viz_water_delivery, water_del, weather):
 
 
 @app.cell
-def _(fig_dir, mof_to_color, mof_to_marker, plt):
+def _(fig_dir, mof_to_color, mof_to_marker, my_date_format, plt):
     def viz_water_delivery_time_series(water_del, weather):
         # infer mof list
         mofs = [col.split()[0] for col in water_del.columns if "delivery" in col]
@@ -1174,9 +1192,10 @@ def _(fig_dir, mof_to_color, mof_to_marker, plt):
             plt.plot(water_del["date"], water_del[mof + " water delivery [g/g]"], marker=mof_to_marker[mof], 
                      color=mof_to_color[mof], label=mof, clip_on=False
             )
-        plt.legend(bbox_to_anchor=(1.05, 1))
+        plt.legend(bbox_to_anchor=(1.02, 1), prop={'size': 12})
         plt.ylim(ymin=0.0)
         plt.title(weather.loc_title)
+        plt.gca().xaxis.set_major_formatter(my_date_format)
         plt.savefig(
             fig_dir + f"/daily_water_delivery_by_mof_{weather.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight"
         )
@@ -1364,7 +1383,7 @@ def _(mofs, optimize_harvester, water_del):
 @app.cell
 def _(fig_dir, mof_to_color, np, plt):
     def viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester, weather):
-        fig = plt.figure(figsize=(6.4 *0.8, 4.8*.8))
+        fig = plt.figure(figsize=(6.4 *0.8, 3.6*.8))
         plt.ylabel("mass [kg MOF]")
 
         # mass of each MOF
@@ -1378,7 +1397,7 @@ def _(fig_dir, mof_to_color, np, plt):
         plt.axhline(
             pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--"
         )
-        plt.text((len(mofs) + 1.5) / 2, pure_mof_harvester["mass [kg]"].min(), "optimal\npure-MOF bed", fontsize=12,
+        plt.text((len(mofs) + 1.5) / 2, pure_mof_harvester["mass [kg]"].min(), "optimal pure-MOF bed", fontsize=12,
                     verticalalignment='center', horizontalalignment="center", 
                     bbox=dict(boxstyle='round', facecolor='white', alpha=0.75, edgecolor='none')
         )
@@ -1418,7 +1437,9 @@ def _(fig_dir, mof_to_color, np, plt):
 
         if weather.location == "Tucson":
             plt.ylim(0, 7)
-                
+        if weather.location == "Socorro":
+            plt.ylim(0, 20)
+
         # save
         plt.savefig(
             fig_dir + f"/opt_composition_{weather.loc_timespan_title}.pdf", 
@@ -1458,14 +1479,14 @@ def _(np, opt_info, weather):
 
 
 @app.cell
-def _(fig_dir, mof_to_color, plt):
+def _(fig_dir, mof_to_color, my_date_format, plt):
     def viz_opt_water_delivery_time_series(water_del, opt_mass_of_mofs, daily_water_demand, weather):
         # list of MOFs comprising water harvester
         mofs = [mof for mof in opt_mass_of_mofs.sort_values("mass [kg]", ascending=False).index 
                 if opt_mass_of_mofs.loc[mof, "mass [kg]"] > 0
         ]
 
-        plt.figure(figsize=(6.4 *0.8, 4.8*.8))
+        plt.figure(figsize=(6.4 * 0.8, 3.6 * 0.8))
         plt.ylabel("water delivery [kg H$_2$O]")
         plt.xticks(rotation=90, ha='center')
         bottom = [0 for d in water_del["date"]]
@@ -1476,8 +1497,11 @@ def _(fig_dir, mof_to_color, plt):
             )
             bottom = bottom + w_mof
         plt.axhline(y=daily_water_demand, color="black", linestyle="--", label="demand")
-        plt.legend(prop={'size': 10}, loc="upper left")# bbox_to_anchor=(1.05, 1), )
+        plt.legend(prop={'size': 10}, loc="upper left", ncol=1)# bbox_to_anchor=(1.05, 1), )
         plt.title(weather.loc_title)
+        plt.gca().xaxis.set_major_formatter(my_date_format)
+        if weather.location == "Socorro":
+            plt.ylim(0, 4.5)
         plt.savefig(
             fig_dir + f"/opt_water_delivery_{weather.loc_timespan_title}.pdf", 
             format="pdf", bbox_inches="tight"
