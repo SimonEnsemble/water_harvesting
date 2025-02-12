@@ -994,7 +994,7 @@ def _(mo):
 def _(Weather):
     weather = Weather(6, "Tucson", day_min=1, day_max=10)
     # weather = Weather(6, "Socorro", day_min=1, day_max=10)
-    # weather = Weather(8, "Tucson", day_min=11, day_max=20)
+    weather = Weather(8, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
 
@@ -1397,10 +1397,11 @@ def _(fig_dir, mof_to_color, np, plt):
         plt.axhline(
             pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--"
         )
-        plt.text((len(mofs) + 1.5) / 2, pure_mof_harvester["mass [kg]"].min(), "optimal pure-MOF bed", fontsize=12,
-                    verticalalignment='center', horizontalalignment="center", 
-                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.75, edgecolor='none')
-        )
+        if not weather.month == 8 and weather.location == "Tucson":
+            plt.text((len(mofs) + 1.5) / 2, pure_mof_harvester["mass [kg]"].min(), "optimal pure-MOF bed", fontsize=12,
+                        verticalalignment='center', horizontalalignment="center", 
+                        bbox=dict(boxstyle='round', facecolor='white', alpha=0.75, edgecolor='none')
+            )
         opt_pure_mof = pure_mof_harvester.sort_values("mass [kg]").index[0]
         print("opt pure MOF: ", opt_pure_mof)
 
