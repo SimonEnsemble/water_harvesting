@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.0"
+__generated_with = "0.10.2"
 app = marimo.App(width="medium")
 
 
@@ -107,7 +107,7 @@ def _(mo):
 def _(random, sns):
     # list of MOFs
     random.seed(97330)
-    mofs = ["MOF-801", "KMF-1", "CAU-23", "MIL-160", "MOF-303", "CAU-10H", "Al-Fum", "MIP-200"]
+    mofs = ["MOF-801", "KMF-1", "CAU-23", "MIL-160", "MOF-303", "CAU-10-H", "Al-Fum", "MIP-200"]
     random.shuffle(mofs)
 
     # maps MOF to the temperatures at which we possess adsorption data
@@ -117,7 +117,7 @@ def _(random, sns):
         "CAU-23": [25, 40, 60],
         "MIL-160": [20],
         "MOF-303": [25],
-        "CAU-10H": [25],
+        "CAU-10-H": [25],
         "Al-Fum": [25],
         "MIP-200": [30]
     }
@@ -128,7 +128,7 @@ def _(random, sns):
         "CAU-23": 25,
         "MIL-160": 20,
         "MOF-303": 25,
-        "CAU-10H": 25,
+        "CAU-10-H": 25,
         "Al-Fum": 25,
         "MIP-200": 30
     }
@@ -512,7 +512,7 @@ def _(mo):
 
 @app.cell
 def _(mof_water_ads):
-    mof_water_ads["CAU-10H"].viz_adsorption_isotherms()
+    mof_water_ads["CAU-10-H"].viz_adsorption_isotherms()
     return
 
 
