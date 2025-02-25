@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.2"
+__generated_with = "0.11.0"
 app = marimo.App(width="medium")
 
 
@@ -123,7 +123,7 @@ def _(random, sns):
     }
 
     mof_to_fit_temperatures = {
-        "MOF-801": 45,
+        "MOF-801": 25,
         "KMF-1": 25,
         "CAU-23": 25,
         "MIL-160": 20,
@@ -405,7 +405,7 @@ def _(mo):
 
 @app.cell
 def _(mof):
-    mof.viz_adsorption_isotherm(45)
+    mof.viz_adsorption_isotherm(25)
     return
 
 
@@ -993,16 +993,10 @@ def _(mo):
 @app.cell
 def _(Weather):
     weather = Weather(6, "Tucson", day_min=1, day_max=10)
-    # weather = Weather(6, "Socorro", day_min=1, day_max=10)
-    weather = Weather(8, "Tucson", day_min=11, day_max=20)
+    weather = Weather(6, "Socorro", day_min=1, day_max=10)
+    # weather = Weather(8, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
-
-
-@app.cell
-def _(w, weather):
-    w(weather.raw_data["T_HR_AVG"] < -990.0).sum()
-    return
 
 
 @app.cell
@@ -1114,8 +1108,12 @@ def _(trim_water_delivery_data, water_del):
 
 
 @app.cell
-def _(water_del):
-    water_del.loc[0, "ads T [°C]"]
+def _(mofs, trim_water_delivery_data, water_del):
+    # print average daily water delivery
+    for _mof in mofs:
+        _wd = trim_water_delivery_data(water_del, _mof)
+        print("mof: ", _mof)
+        print("avg del: ", _wd[_mof + " water delivery [g/g]"].mean())
     return
 
 
@@ -1165,6 +1163,18 @@ def _(
         plt.savefig(fig_dir + f"/{mof}_ads_des_{date}_{weather.loc_title}.pdf", format="pdf", bbox_inches="tight")
         plt.show()
     return (viz_water_delivery,)
+
+
+@app.cell
+def _(mof_water_ads, viz_water_delivery, water_del, weather):
+    viz_water_delivery(water_del, "KMF-1", 3, mof_water_ads, weather)
+    return
+
+
+@app.cell
+def _(mof_water_ads, viz_water_delivery, water_del, weather):
+    viz_water_delivery(water_del, "KMF-1", 9, mof_water_ads, weather)
+    return
 
 
 @app.cell
@@ -1459,6 +1469,12 @@ def _(
     weather,
 ):
     viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester, weather)
+    return
+
+
+@app.cell
+def _(opt_mass_of_mofs):
+    opt_mass_of_mofs / opt_mass_of_mofs["mass [kg]"].sum()
     return
 
 
