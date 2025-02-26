@@ -1082,8 +1082,8 @@ def _(mo):
 @app.cell
 def _(Weather):
     weather = Weather(6, "Tucson", day_min=1, day_max=10)
-    # weather = Weather(6, "Socorro", day_min=1, day_max=10)
-    weather = Weather(8, "Tucson", day_min=11, day_max=20)
+    weather = Weather(6, "Socorro", day_min=1, day_max=10)
+    # weather = Weather(8, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
 
@@ -1419,13 +1419,16 @@ def _(linprog, np, pd, warnings):
         # water delivery data on each day for each MOF
         water_del, 
         # water needed per day [kg]
-        daily_water_demand
+        daily_water_demand,
+        # print stuff?
+        verbose=True
     ):
         n_mofs = len(mofs)
         n_days = water_del.shape[0]
 
-        print(f"optimizing water harvest for {n_mofs} MOFs over {n_days} days...")
-        print(f"\tdrinking water demand [kg] : {daily_water_demand}")
+        if verbose:
+            print(f"optimizing water harvest for {n_mofs} MOFs over {n_days} days...")
+            print(f"\tdrinking water demand [kg] : {daily_water_demand}")
 
         # create W matrix
         #  w[d, m] = water delivery [g/g] on day d by MOF m
@@ -1453,11 +1456,12 @@ def _(linprog, np, pd, warnings):
             warnings.warn("yikes! failure to solve linear program.")
             return res
         else:
-            print("\toptimization successful.")
-            print("\t\tmin mass of water harvester [kg]: ", res.fun)
-            print("\t\toptimal composition:")
-            for (m, mof) in enumerate(mofs):
-                print(f"\t\t\t{mof}: {res.x[m]} kg")
+            if verbose:
+                print("\toptimization successful.")
+                print("\t\tmin mass of water harvester [kg]: ", res.fun)
+                print("\t\toptimal composition:")
+                for (m, mof) in enumerate(mofs):
+                    print(f"\t\t\t{mof}: {res.x[m]} kg")
 
         opt_info = {
             'active constraints': [d for d, s in enumerate(res.slack) if s == 0],
@@ -1567,6 +1571,40 @@ def _(opt_mass_of_mofs):
     return
 
 
+@app.cell
+def _():
+    def get_active_mofs(opt_mass_of_mofs):
+        return opt_mass_of_mofs[opt_mass_of_mofs["mass [kg]"] > 0.0].index.values
+
+    def get_nonactive_mofs(opt_mass_of_mofs):
+        return opt_mass_of_mofs[opt_mass_of_mofs["mass [kg]"] == 0.0].index.values
+    return get_active_mofs, get_nonactive_mofs
+
+
+@app.cell
+def _(fig_dir, get_active_mofs, mof_to_color, opt_mass_of_mofs, plt, weather):
+    def viz_optimal_harvester_pie(opt_mass_of_mofs, weather):
+        active_mofs = get_active_mofs(opt_mass_of_mofs)
+        ms = [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in active_mofs]
+
+        total_mass = opt_mass_of_mofs["mass [kg]"].sum()
+    
+        fig, ax = plt.subplots()
+        ax.pie(
+            ms, labels=active_mofs, 
+            colors=[mof_to_color[mof] for mof in active_mofs]
+        )
+        plt.title(f"total mass: {total_mass:.1f} kg")
+        plt.savefig(
+            fig_dir + f"/opt_composition_pie{weather.loc_timespan_title}.pdf", 
+            format="pdf", bbox_inches="tight"
+        )
+        plt.show()
+
+    viz_optimal_harvester_pie(opt_mass_of_mofs, weather)
+    return (viz_optimal_harvester_pie,)
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""viz the slack (water delivered on each day).""")
@@ -1653,18 +1691,73 @@ def _(opt_info):
 
 
 @app.cell
-def _(my_date_format, opt_info, plt, weather):
+def _(fig_dir, my_date_format, opt_info, plt, weather):
     def viz_marginals(opt_info, weather):
         plt.figure(figsize=(6.4 * 0.8, 3.6 * 0.8))
         plt.bar(weather.ads_des_conditions["date"], opt_info["marginals"])
         plt.xticks(rotation=90)
         plt.ylabel("shadow price\n[kg MOF / kg H$_2$O]")
         plt.gca().xaxis.set_major_formatter(my_date_format)
-        plt.savefig(f"shadow_prices_{weather.loc_timespan_title}.pdf", format="pdf")
+        plt.savefig(fig_dir + f"/shadow_prices_{weather.loc_timespan_title}.pdf", format="pdf")
         plt.show()
 
     viz_marginals(opt_info, weather)
     return (viz_marginals,)
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""### sensitivity analysis""")
+    return
+
+
+@app.cell
+def _(optimize_harvester):
+    def a_sensitivity_analysis(mofs, water_del, daily_water_demand, mof, x):
+        # perturb water delivery of MOF x by 10%
+        perturbed_water_del = water_del.copy()
+        perturbed_water_del[mof + " water delivery [g/g]"] *= (1.0 + x)
+    
+        opt_mass_of_mofs, min_mass, opt_info = optimize_harvester(
+            mofs, perturbed_water_del, daily_water_demand, verbose=False
+        )
+    
+        return opt_mass_of_mofs, min_mass, opt_info
+    return (a_sensitivity_analysis,)
+
+
+@app.cell
+def _(a_sensitivity_analysis, get_active_mofs, get_nonactive_mofs):
+    def sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1):
+        active_mofs = get_active_mofs(opt_mass_of_mofs)
+        nonactive_mofs = get_nonactive_mofs(opt_mass_of_mofs)
+
+        # increase water delivery of non-active MOFs by 10%. 
+        #   does the set of active MOFs change?
+        for mof in nonactive_mofs:
+            new_opt_mass_of_mofs, _, _ = a_sensitivity_analysis(
+                opt_mass_of_mofs.index, water_del, daily_water_demand, mof, x
+            )
+            new_active_mofs = get_active_mofs(new_opt_mass_of_mofs)
+            if set(new_active_mofs) != set(active_mofs):
+                print(f"increasing water delivery of {mof} by {x} changes composition to {new_active_mofs}.")
+
+        # decrease water delivery of active MOFs by 10%. 
+        #   does the set of active MOFs change?
+        for mof in active_mofs:
+            new_opt_mass_of_mofs, _, _ = a_sensitivity_analysis(
+                opt_mass_of_mofs.index, water_del, daily_water_demand, mof, -x
+            )
+            new_active_mofs = get_active_mofs(new_opt_mass_of_mofs)
+            if set(new_active_mofs) != set(active_mofs):
+                print(f"decreasing water delivery of {mof} by {x} changes composition to {new_active_mofs}.")
+    return (sensitivity_analysis,)
+
+
+@app.cell
+def _(daily_water_demand, opt_mass_of_mofs, sensitivity_analysis, water_del):
+    sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.05)
+    return
 
 
 @app.cell(hide_code=True)
