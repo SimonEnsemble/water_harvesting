@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.0"
+__generated_with = "0.11.8"
 app = marimo.App(width="medium")
 
 
@@ -254,7 +254,7 @@ def _(
             if data_or_predicted == "data":
                 # read data
                 data = self._read_ads_data(temperature)
-                
+
                 ps = data["P/P_0"]
                 ws = data['Water Uptake [kg kg-1]']  
             elif data_or_predicted == "predicted":
@@ -262,10 +262,10 @@ def _(
                 ws = [self.predict_water_adsorption(temperature, p) for p in ps]
             else:
                 raise Exception("data_or_predicted invalid.")
-                
+
             kf = kneefinder.KneeFinder(ps, ws)
             p_star, w_star = kf.find_knee()
-            
+
             return p_star
 
         def fit_characteristic_curve(self):
@@ -308,7 +308,7 @@ def _(
             # read in data
             data = self._read_ads_data(temperature)
             n = data.shape[0] # number of data points
-            
+
             # loop over data
             mae = 0.0
             for i in range(n):
@@ -316,7 +316,7 @@ def _(
                 true_ads = data.loc[i, "Water Uptake [kg kg-1]"]
                 mae += abs(pred_ads - true_ads)
             mae /= n # normalize for number of data
-            
+
             rmse = mae / data["Water Uptake [kg kg-1]"].mean() # normalize for amount
 
             print(f"\trelative MSE at T {temperature}C = {rmse}.")
@@ -522,12 +522,7 @@ def _(mo):
 
 
 @app.cell
-def _(
-    MOFWaterAds,
-    mof_to_data_temperatures,
-    mof_to_fit_temperatures,
-    mofs,
-):
+def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures, mofs):
     mof_water_ads = {mof: MOFWaterAds(mof, mof_to_fit_temperatures[mof], mof_to_data_temperatures[mof]) for mof in mofs}
     return (mof_water_ads,)
 
@@ -1087,8 +1082,8 @@ def _(mo):
 @app.cell
 def _(Weather):
     weather = Weather(6, "Tucson", day_min=1, day_max=10)
-    weather = Weather(6, "Socorro", day_min=1, day_max=10)
-    # weather = Weather(8, "Tucson", day_min=11, day_max=20)
+    # weather = Weather(6, "Socorro", day_min=1, day_max=10)
+    weather = Weather(8, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
 
@@ -1633,6 +1628,12 @@ def _(
     return
 
 
+@app.cell
+def _(opt_info):
+    opt_info["slack"]
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""the marginals reveal how sensitive the solution is, to the daily drinking water demand changing. these refer to only the active constraints.""")
@@ -1649,6 +1650,21 @@ def _(opt_info):
 def _(opt_info):
     opt_info["marginals"]
     return
+
+
+@app.cell
+def _(my_date_format, opt_info, plt, weather):
+    def viz_marginals(opt_info, weather):
+        plt.figure(figsize=(6.4 * 0.8, 3.6 * 0.8))
+        plt.bar(weather.ads_des_conditions["date"], opt_info["marginals"])
+        plt.xticks(rotation=90)
+        plt.ylabel("shadow price\n[kg MOF / kg H$_2$O]")
+        plt.gca().xaxis.set_major_formatter(my_date_format)
+        plt.savefig(f"shadow_prices_{weather.loc_timespan_title}.pdf", format="pdf")
+        plt.show()
+
+    viz_marginals(opt_info, weather)
+    return (viz_marginals,)
 
 
 @app.cell(hide_code=True)
