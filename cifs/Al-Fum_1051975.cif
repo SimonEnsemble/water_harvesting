@@ -1,0 +1,155 @@
+####################################################################### 
+# 
+# This file contains crystal structure data downloaded from the 
+# Cambridge Structural Database (CSD) hosted by the Cambridge 
+# Crystallographic Data Centre (CCDC).
+# 
+# Full information about CCDC data access policies and citation 
+# guidelines are available at http://www.ccdc.cam.ac.uk/access/V1 
+# 
+# Audit and citation data items may have been added by the CCDC. 
+# Please retain this information to preserve the provenance of 
+# this file and to allow appropriate attribution of the data. 
+# 
+#######################################################################
+
+data_BasoliteA520
+_audit_block_doi                 10.5517/cc149nps
+_database_code_depnum_ccdc_archive 'CCDC 1051975'
+loop_
+_citation_id
+_citation_doi
+_citation_year
+1 10.1002/anie.201410459 2015
+_audit_update_record             
+;
+2015-03-03 deposited with the CCDC.	2025-02-13 downloaded from the CCDC.
+;
+_publ_contact_author_addres      'Christian Serre'
+
+#=============================================================================
+
+
+# POWDER SPECIMEN AND CRYSTAL DATA
+
+_chemical_formula_moiety         '(Al3+), (C4O4H2 2-) (OH 1-) (H2O)4'
+_chemical_formula_sum            'C4  H11 O9 Al'
+_chemical_formula_weight         220.10
+_exptl_crystal_colour            Colourless
+
+_chemical_name_mineral           ?Structure?
+_cell_length_a                   6.8419(30)
+_cell_length_b                   12.0877(22)
+_cell_length_c                   14.207(10)
+_cell_angle_alpha                90
+_cell_angle_beta                 122.547(62)
+_cell_angle_gamma                90
+_cell_volume                     990.4(11)
+_cell_formula_units_Z            4
+_diffrn_ambient_temperature      293
+_cell_measurement_temperature    293
+_pd_spec_mounting                'glass capillary'
+_pd_spec_mount_mode              transmission
+_pd_spec_shape                   cylinder
+
+#=============================================================================
+
+#  EXPERIMENTAL DATA
+
+_diffrn_source                   'Sealed tube'
+_diffrn_radiation_type           CuKa1
+
+_diffrn_radiation_monochromator  Ge(111)
+
+
+#  The following four items give details of the measured (not processed)
+#  powder pattern.  Angles are in degrees.
+
+#_pd_meas_number_of_points         5881
+_pd_meas_2theta_range_min        5.000
+_pd_meas_2theta_range_max        90.000
+_pd_meas_2theta_range_inc        0.014455
+
+#=============================================================================
+
+#  REFINEMENT DATA
+
+
+# Use the next field to give any special details about the fitting of the
+# powder pattern.
+
+
+# The next three items are given as text.
+
+_pd_proc_ls_profile_function     'spherical harmonics_hkl'
+_pd_proc_ls_background_function  'Chebychev polynomial'
+
+
+
+#  The following profile R-factors are NOT CORRECTED for background
+#  The sum is extended to all non-excluded points.
+#  These are the current CIF standard
+
+_pd_proc_ls_prof_R_factor        0.048
+_pd_proc_ls_prof_wR_factor       0.067
+
+#  Items related to LS refinement
+
+_refine_ls_R_I_factor            0.020
+_refine_ls_goodness_of_fit_all   4.97
+_refine_ls_number_reflns         609
+_refine_ls_number_structural_parameters 14
+_refine_ls_number_profile_parameters 61
+_refine_ls_number_restraints     1
+
+# The following four items apply to angular dispersive measurements.
+# 2theta minimum, maximum and increment (in degrees) are for the 
+# intensities used in the refinement.
+
+_pd_proc_2theta_range_min        5.000
+_pd_proc_2theta_range_max        80.000
+_pd_proc_2theta_range_inc        0.014455
+_diffrn_radiation_wavelength     1.5406
+
+_computing_indexing              DICVOL
+_computing_structure_solution    'SIR97 and TOPAS'
+_computing_structure_refinement  TOPAS
+_computing_molecular_graphics    DIAMOND
+
+#=============================================================================
+_symmetry_space_group_name_H-M   P21/C
+loop_
+_symmetry_equiv_pos_as_xyz
+'-x, -y, -z'
+'-x, y+1/2, -z+1/2'
+'x, -y+1/2, z+1/2'
+'x, y, z'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_symmetry_multiplicity
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+_atom_site_B_iso_or_equiv
+Al1 Al 2 0.5 0.5 0 1 0.00(10)
+Al2 Al 2 0 0.5 0 1 0.00(10)
+O1 O 4 0.18012 0.51731 0.94015 1 0.00(10)
+O2 O 4 0.24705 0.40015 0.11591 1 0.00(10)
+O3 O 4 0.53844 0.36877 0.08438 1 0.00(10)
+O4 O 4 0.4506 0.0933 0.37967 1 0.00(10)
+O5 O 4 0.78276 0.11334 0.39942 1 0.00(10)
+C1 C 4 0.42977 0.34699 0.13382 1 0.00(10)
+C2 C 4 0.55444 0.26496 0.22203 1 0.00(10)
+C3 C 4 0.45578 0.22792 0.27381 1 0.00(10)
+C4 C 4 0.57869 0.14099 0.3604 1 0.00(10)
+H2 H 4 0.72968 0.23217 0.24306 1 4
+H3 H 4 0.27772 0.25787 0.25162 1 4
+H1 H 4 0.07705 0.47442 0.86934 1 4
+Ow1 O 4 0.8051(10) 0.5085(28) 0.3774(12) 1 2
+Ow2 O 4 0.8686(39) 0.66001(94) 0.56390(95) 1 2
+Ow3 O 4 0.2968(64) 0.67604(93) 0.4404(13) 1 2
+Ow4 O 4 1.1135(40) 0.5035(14) 0.31257(76) 1 2;
+_chemical_name_systematic        BasoliteA520
+_chemical_name_common            MIL-53(Al)-FA
