@@ -19,6 +19,7 @@ def _():
     import seaborn as sns
     import os
     import warnings
+    import kneefinder
 
     # matplotlib styles
     from aquarel import load_theme
@@ -34,6 +35,7 @@ def _():
     return (
         dataclass,
         interpolate,
+        kneefinder,
         linprog,
         load_theme,
         mdates,
@@ -112,7 +114,7 @@ def _(random, sns):
 
     # maps MOF to the temperatures at which we possess adsorption data
     mof_to_data_temperatures = {
-        "MOF-801": [15, 25, 45, 65, 85],
+        "MOF-801": [15, 25, 45, 65],
         "KMF-1": [25],
         "CAU-23": [25, 40, 60],
         "MIL-160": [20],
@@ -184,7 +186,17 @@ def _(mpl):
 
 
 @app.cell
-def _(R, T_to_color, axis_labels, fig_dir, interpolate, np, pd, plt):
+def _(
+    R,
+    T_to_color,
+    axis_labels,
+    fig_dir,
+    interpolate,
+    kneefinder,
+    np,
+    pd,
+    plt,
+):
     class MOFWaterAds:
         def __init__(self, mof, fit_temperature, data_temperatures):
             """
@@ -235,6 +247,27 @@ def _(R, T_to_color, axis_labels, fig_dir, interpolate, np, pd, plt):
 
             return ads_data
 
+        def find_transition_p(self, temperature, data_or_predicted):
+            """
+            knee detection algo to find transition pressure.
+            """
+            if data_or_predicted == "data":
+                # read data
+                data = self._read_ads_data(temperature)
+                
+                ps = data["P/P_0"]
+                ws = data['Water Uptake [kg kg-1]']  
+            elif data_or_predicted == "predicted":
+                ps = np.linspace(0.01, 1, 100)
+                ws = [self.predict_water_adsorption(temperature, p) for p in ps]
+            else:
+                raise Exception("data_or_predicted invalid.")
+                
+            kf = kneefinder.KneeFinder(ps, ws)
+            p_star, w_star = kf.find_knee()
+            
+            return p_star
+
         def fit_characteristic_curve(self):
             # read in adsorption isotherm data at fit temperature
             data = self._read_ads_data(self.fit_temperature)
@@ -267,6 +300,33 @@ def _(R, T_to_color, axis_labels, fig_dir, interpolate, np, pd, plt):
 
             # compute water adsorption at this A on the char. curve
             return self.ads_of_A(A).item() # kg/kg
+
+        def rmae_prediction(self, temperature):
+            """
+            compute the MAE of adsorption, | predicted - actual | at a given temperature
+            """
+            # read in data
+            data = self._read_ads_data(temperature)
+            n = data.shape[0] # number of data points
+            
+            # loop over data
+            mae = 0.0
+            for i in range(n):
+                pred_ads = self.predict_water_adsorption(temperature, data.loc[i, "P/P_0"])
+                true_ads = data.loc[i, "Water Uptake [kg kg-1]"]
+                mae += abs(pred_ads - true_ads)
+            mae /= n # normalize for number of data
+            
+            rmse = mae / data["Water Uptake [kg kg-1]"].mean() # normalize for amount
+
+            print(f"\trelative MSE at T {temperature}C = {rmse}.")
+
+            # compare transition pressures
+            p_star_data = self.find_transition_p(temperature, "data")
+            p_star_pred = self.find_transition_p(temperature, "predicted")
+            print("\t\tp transition (data): ", p_star_data)
+            print("\t\tp transition (theory): ", p_star_pred)
+            print("\t\t\tdifference: ", abs(p_star_data - p_star_pred))
 
         def viz_adsorption_isotherm(self, temperature, incl_predictions=True):
             data = self._read_ads_data(temperature)
@@ -409,6 +469,12 @@ def _(mof):
     return
 
 
+@app.cell
+def _(mof):
+    mof.find_transition_p(45, "data")
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""visualize all measured adsorption data.""")
@@ -430,6 +496,22 @@ def _(mo):
 @app.cell
 def _(mof):
     mof.plot_characteristic_curves(save=True)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""compute MAE of predicted vs actual adsorption at different temperatures.""")
+    return
+
+
+@app.cell
+def _(mof, mof_to_data_temperatures):
+    for _T in mof_to_data_temperatures["MOF-801"]:
+        mof.rmae_prediction(_T)
+        _p_data = mof.find_transition_p(_T, "data")
+        _p_pred = mof.find_transition_p(_T, "predicted")
+        print(f"pred vs ")
     return
 
 
@@ -477,6 +559,18 @@ def _(mof_water_ads):
 @app.cell
 def _(mof_water_ads):
     mof_water_ads["CAU-23"].plot_characteristic_curves(save=True)
+    return
+
+
+@app.cell
+def _(mof_to_data_temperatures, mof_water_ads):
+    for _T in mof_to_data_temperatures["CAU-23"]:
+        mof_water_ads["CAU-23"].rmae_prediction(_T)
+    return
+
+
+@app.cell
+def _():
     return
 
 
