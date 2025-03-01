@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.8"
+__generated_with = "0.11.0"
 app = marimo.App(width="medium")
 
 
@@ -522,7 +522,12 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures, mofs):
+def _(
+    MOFWaterAds,
+    mof_to_data_temperatures,
+    mof_to_fit_temperatures,
+    mofs,
+):
     mof_water_ads = {mof: MOFWaterAds(mof, mof_to_fit_temperatures[mof], mof_to_data_temperatures[mof]) for mof in mofs}
     return (mof_water_ads,)
 
@@ -648,7 +653,7 @@ def _(mo):
 
 
 @app.cell
-def _(axis_labels, fig_dir, mof_to_color, np, plt):
+def _(axis_labels, fig_dir, mof_to_color, mof_water_ads, np, plt):
     def viz_all_predicted_adsorption_isotherms(temperature, mof_water_ads):
         fig = plt.Figure()
         plt.xlabel(axis_labels["pressure"])
@@ -664,13 +669,38 @@ def _(axis_labels, fig_dir, mof_to_color, np, plt):
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.savefig(fig_dir + "/RT_ads_isotherms.pdf", format="pdf", bbox_inches="tight")
         plt.show()
+
+    viz_all_predicted_adsorption_isotherms(25, mof_water_ads)
     return (viz_all_predicted_adsorption_isotherms,)
 
 
-@app.cell
-def _(mof_water_ads, viz_all_predicted_adsorption_isotherms):
-    viz_all_predicted_adsorption_isotherms(25, mof_water_ads)
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""transition pressures vs. maxima (predicted) at room temperature""")
     return
+
+
+@app.cell
+def _(fig_dir, mof_to_color, mof_water_ads, mofs, plt):
+    def viz_step_locations(mof_water_ads, temperature):
+        plt.figure()
+        plt.xlabel("step location [relative humidity]")
+        plt.ylabel("water uptake [kg H$_2$O/ kg MOF]\nat 100% relative humidity")
+        for mof in mofs:
+            plt.scatter(
+                [mof_water_ads[mof].find_transition_p(temperature, "predicted")], 
+                [mof_water_ads[mof].predict_water_adsorption(temperature, 1.0)],
+                color=mof_to_color[mof], label=mof
+            )
+        plt.xlim(0, 0.5)
+        plt.ylim(0, 0.6)
+        plt.title("T = {}°C".format(temperature))
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.savefig(fig_dir + "/isotherm_transitions.pdf", format="pdf", bbox_inches="tight")
+        plt.show()
+        
+    viz_step_locations(mof_water_ads, 25)
+    return (viz_step_locations,)
 
 
 @app.cell
@@ -1582,13 +1612,20 @@ def _():
 
 
 @app.cell
-def _(fig_dir, get_active_mofs, mof_to_color, opt_mass_of_mofs, plt, weather):
+def _(
+    fig_dir,
+    get_active_mofs,
+    mof_to_color,
+    opt_mass_of_mofs,
+    plt,
+    weather,
+):
     def viz_optimal_harvester_pie(opt_mass_of_mofs, weather):
         active_mofs = get_active_mofs(opt_mass_of_mofs)
         ms = [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in active_mofs]
 
         total_mass = opt_mass_of_mofs["mass [kg]"].sum()
-    
+
         fig, ax = plt.subplots()
         ax.pie(
             ms, labels=active_mofs, 
@@ -1717,11 +1754,11 @@ def _(optimize_harvester):
         # perturb water delivery of MOF x by 10%
         perturbed_water_del = water_del.copy()
         perturbed_water_del[mof + " water delivery [g/g]"] *= (1.0 + x)
-    
+
         opt_mass_of_mofs, min_mass, opt_info = optimize_harvester(
             mofs, perturbed_water_del, daily_water_demand, verbose=False
         )
-    
+
         return opt_mass_of_mofs, min_mass, opt_info
     return (a_sensitivity_analysis,)
 
@@ -1755,7 +1792,12 @@ def _(a_sensitivity_analysis, get_active_mofs, get_nonactive_mofs):
 
 
 @app.cell
-def _(daily_water_demand, opt_mass_of_mofs, sensitivity_analysis, water_del):
+def _(
+    daily_water_demand,
+    opt_mass_of_mofs,
+    sensitivity_analysis,
+    water_del,
+):
     sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.05)
     return
 
