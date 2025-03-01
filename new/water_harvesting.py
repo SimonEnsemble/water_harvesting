@@ -681,17 +681,19 @@ def _(mo):
 
 
 @app.cell
-def _(fig_dir, mof_to_color, mof_water_ads, mofs, plt):
+def _(fig_dir, mof_to_color, mof_to_marker, mof_water_ads, mofs, plt):
     def viz_step_locations(mof_water_ads, temperature):
         plt.figure()
         plt.xlabel("step location [relative humidity]")
         plt.ylabel("water uptake [kg H$_2$O/ kg MOF]\nat 100% relative humidity")
         for mof in mofs:
-            plt.scatter(
-                [mof_water_ads[mof].find_transition_p(temperature, "predicted")], 
-                [mof_water_ads[mof].predict_water_adsorption(temperature, 1.0)],
-                color=mof_to_color[mof], label=mof
-            )
+            # water ads at 100% RH
+            w = mof_water_ads[mof].predict_water_adsorption(temperature, 1.0)
+            # transition pressure  
+            p_star = mof_water_ads[mof].find_transition_p(temperature, "predicted")
+            print(f"{mof}: p* = {p_star} RH, w = {w}")
+            
+            plt.scatter([p_star], [w], color=mof_to_color[mof], label=mof, s=60, marker=mof_to_marker[mof])
         plt.xlim(0, 0.5)
         plt.ylim(0, 0.6)
         plt.title("T = {}°C".format(temperature))
@@ -713,13 +715,12 @@ def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
         for mof in mof_water_ads.keys():
             T = mof_water_ads[mof].fit_temperature
             data = mof_water_ads[mof]._read_ads_data(T)
-
-            # plt.scatter(
-            #     data['P/P_0'], data['Water Uptake [kg kg-1]'],
-            #     color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
-            #     facecolors='none', edgecolors=mof_to_color[mof], 
-            #     marker=mof_to_marker[mof], s=50
-            # )
+            
+            # print max and transition pressure
+            print(mof)
+            print("\tp* = ", mof_water_ads[mof].find_transition_p(T, "data"))
+            print("\tmax: ", data['Water Uptake [kg kg-1]'].max())
+                  
             plt.plot(
                 data['P/P_0'], data['Water Uptake [kg kg-1]'],
                 color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
@@ -1409,8 +1410,8 @@ def _(daily_water_demand, mass_water_harvester, mofs, water_del):
 
 
 @app.cell
-def _(fig_dir, mof_to_color, plt):
-    def viz_pure_mof_harvester(pure_mof_harvester, mofs):
+def _(fig_dir, mof_to_color, mofs, plt, pure_mof_harvester, weather):
+    def viz_pure_mof_harvester(pure_mof_harvester, mofs, weather):
         fig = plt.figure(figsize=(6.4, 3.5))
         plt.bar(
             range(len(mofs)), [pure_mof_harvester.loc[mof, "mass [kg]"] for mof in mofs], 
@@ -1418,15 +1419,14 @@ def _(fig_dir, mof_to_color, plt):
         )
         plt.xticks(range(len(mofs)), mofs, rotation=90)
         plt.ylabel("mass [kg]")
-        plt.savefig(fig_dir + f"/baseline.pdf", format="pdf", bbox_inches="tight")
+        plt.title("minimal-mass pure-MOF harvester")
+        
+        lg = plt.legend(title=f"{weather.loc_timespan_title}", prop={'size': 12})
+        plt.savefig(fig_dir + f"/pure_MOF_harvester_{weather.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
         plt.show()
+
+    viz_pure_mof_harvester(pure_mof_harvester, mofs, weather)
     return (viz_pure_mof_harvester,)
-
-
-@app.cell
-def _(mofs, pure_mof_harvester, viz_pure_mof_harvester):
-    viz_pure_mof_harvester(pure_mof_harvester, mofs)
-    return
 
 
 @app.cell(hide_code=True)
