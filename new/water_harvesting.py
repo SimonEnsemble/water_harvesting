@@ -173,7 +173,7 @@ def _(mpl):
 
     # mapping temperature to color
     temperature_cmap = mpl.colormaps["inferno"]
-    temperature_cmap_norm = mpl.colors.Normalize(vmin=15.0, vmax=90.0)
+    temperature_cmap_norm = mpl.colors.Normalize(vmin=10.0, vmax=90.0)
 
     def T_to_color(temperature):
         if temperature < temperature_cmap_norm.vmin or temperature > temperature_cmap_norm.vmax:
@@ -849,6 +849,14 @@ def _():
 
 
 @app.cell
+def _(os):
+    wdata_dir = "data/NOAA_weather_data"
+    wfiles = os.listdir(wdata_dir)
+    list(filter(lambda wfile: "Socorro" in wfile and str(2024) in wfile, wfiles))#[0]
+    return wdata_dir, wfiles
+
+
+@app.cell
 def _(
     city_to_state,
     fig_dir,
@@ -862,11 +870,12 @@ def _(
     water_vapor_presssure,
 ):
     class Weather:
-        def __init__(self, month, location, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
+        def __init__(self, month, year, location, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
             self.month = month
+            self.year = year
             self.location = location
 
-            print(f"reading 2024 {location} weather for {month}/{day_min} - {month}/{day_max}.")
+            print(f"reading {year} {location} weather for {month}/{day_min} - {month}/{day_max}.")
             print("\tnighttime adsorption hr: ", time_to_hour["night"])
             print("\tdaytime harvest hr: ", time_to_hour["day"])
 
@@ -893,7 +902,10 @@ def _(
             wfiles = os.listdir(wdata_dir)
             assert [self.location in wfile for wfile in wfiles]
 
-            filename = list(filter(lambda wfile: self.location in wfile, wfiles))[0]
+            filename = list(filter(lambda wfile: self.location in wfile and str(self.year) in wfile, wfiles))
+            assert len(filename) == 1
+            filename = filename[0]
+            print(f"\t...reading weather data from {filename}")
 
             col_names = open(wdata_dir + "/headers.txt", "r").readlines()[1].split()
 
@@ -907,7 +919,7 @@ def _(
             self.raw_data["date"] = pd.to_datetime(self.raw_data["LST_DATE"])
 
             # keep only self.month of 2024
-            self.raw_data = self.raw_data[self.raw_data["date"].dt.year == 2024] # keep only 2024
+            self.raw_data = self.raw_data[self.raw_data["date"].dt.year == self.year] # keep only 2024
             self.raw_data = self.raw_data[self.raw_data["date"].dt.month == self.month] # keep only 2024
 
             # day filter
@@ -1112,9 +1124,9 @@ def _(mo):
 
 @app.cell
 def _(Weather):
-    weather = Weather(6, "Tucson", day_min=1, day_max=10)
-    weather = Weather(6, "Socorro", day_min=1, day_max=10)
-    # weather = Weather(8, "Tucson", day_min=11, day_max=20)
+    weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
+    weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
+    # weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
 
@@ -1731,20 +1743,27 @@ def _(opt_info):
 def _(fig_dir, my_date_format, opt_info, plt, weather):
     def viz_marginals(opt_info, weather):
         plt.figure(figsize=(6.4 * 0.8, 3.6 * 0.8))
-        plt.bar(weather.ads_des_conditions["date"], opt_info["marginals"])
+        plt.bar(weather.ads_des_conditions["date"], -opt_info["marginals"])
         plt.xticks(rotation=90)
         plt.ylabel("shadow price\n[kg MOF / kg H$_2$O]")
         plt.gca().xaxis.set_major_formatter(my_date_format)
-        plt.savefig(fig_dir + f"/shadow_prices_{weather.loc_timespan_title}.pdf", format="pdf")
+        lg = plt.legend(title=f"{weather.loc_timespan_title}", prop={'size': 12})
+        plt.savefig(fig_dir + f"/shadow_prices_{weather.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
         plt.show()
 
     viz_marginals(opt_info, weather)
     return (viz_marginals,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""### sensitivity analysis""")
+    mo.md(
+        r"""
+        ### sensitivity analysis
+
+        what happens if we perturb the predicted water delivery?
+        """
+    )
     return
 
 
@@ -1766,6 +1785,8 @@ def _(optimize_harvester):
 @app.cell
 def _(a_sensitivity_analysis, get_active_mofs, get_nonactive_mofs):
     def sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1):
+        old_opt_mass_of_mofs = opt_mass_of_mofs["mass [kg]"].sum()
+        print("old mass = ", old_opt_mass_of_mofs)
         active_mofs = get_active_mofs(opt_mass_of_mofs)
         nonactive_mofs = get_nonactive_mofs(opt_mass_of_mofs)
 
@@ -1778,6 +1799,7 @@ def _(a_sensitivity_analysis, get_active_mofs, get_nonactive_mofs):
             new_active_mofs = get_active_mofs(new_opt_mass_of_mofs)
             if set(new_active_mofs) != set(active_mofs):
                 print(f"increasing water delivery of {mof} by {x} changes composition to {new_active_mofs}.")
+                print("\tmass % change = ", (new_opt_mass_of_mofs["mass [kg]"].sum() - old_opt_mass_of_mofs) / old_opt_mass_of_mofs)
 
         # decrease water delivery of active MOFs by 10%. 
         #   does the set of active MOFs change?
@@ -1788,6 +1810,7 @@ def _(a_sensitivity_analysis, get_active_mofs, get_nonactive_mofs):
             new_active_mofs = get_active_mofs(new_opt_mass_of_mofs)
             if set(new_active_mofs) != set(active_mofs):
                 print(f"decreasing water delivery of {mof} by {x} changes composition to {new_active_mofs}.")
+                print("\tmass % change = ", (new_opt_mass_of_mofs["mass [kg]"].sum() - old_opt_mass_of_mofs) / old_opt_mass_of_mofs)
     return (sensitivity_analysis,)
 
 
@@ -1798,7 +1821,7 @@ def _(
     sensitivity_analysis,
     water_del,
 ):
-    sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.05)
+    sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1)
     return
 
 
@@ -1826,7 +1849,7 @@ def _(
     plt,
     predict_water_delivery,
 ):
-    _weather = Weather(month=7, location="Tucson", day_min=0, day_max=10)
+    _weather = Weather(month=7, year=2024, location="Tucson", day_min=0, day_max=10)
 
     _mofs = ["MOF-801", "Al-Fum"]
 
