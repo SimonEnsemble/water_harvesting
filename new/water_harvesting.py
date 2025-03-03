@@ -1824,8 +1824,16 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    checkbox = mo.ui.checkbox(label="run sensitivity")
+    checkbox
+    return (checkbox,)
+
+
 @app.cell
 def _(
+    checkbox,
     copy,
     daily_water_demand,
     mof_water_ads,
@@ -1869,12 +1877,13 @@ def _(
     sigma = {"T [°C]": 2.0, "P/P0": 0.02}
     n_weather_designs = 12
 
-    perturbed_weather_designs = [
-        design_under_perturbed_weather(weather, mof_water_ads, daily_water_demand, sigma) for _d in range(n_weather_designs)
-    ]
-
-    for _d in range(n_weather_designs):
-        viz_optimal_harvester(mofs, perturbed_weather_designs[_d], None, weather, save_tag=f"modified_weather_{_d}")
+    if checkbox.value:
+        perturbed_weather_designs = [
+            design_under_perturbed_weather(weather, mof_water_ads, daily_water_demand, sigma) for _d in range(n_weather_designs)
+        ]
+    
+        for _d in range(n_weather_designs):
+            viz_optimal_harvester(mofs, perturbed_weather_designs[_d], None, weather, save_tag=f"modified_weather_{_d}")
     return (
         design_under_perturbed_weather,
         n_weather_designs,
