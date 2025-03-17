@@ -15,9 +15,11 @@ def _():
     import random
     from scipy import interpolate
     from scipy.optimize import linprog
+    from scipy.stats import truncnorm
     from dataclasses import dataclass
     import seaborn as sns
     import os
+    import copy
     import warnings
     import kneefinder
 
@@ -33,6 +35,7 @@ def _():
     my_date_format_str = '%b-%d'
     my_date_format = mdates.DateFormatter(my_date_format_str)
     return (
+        copy,
         dataclass,
         interpolate,
         kneefinder,
@@ -50,6 +53,7 @@ def _():
         random,
         sns,
         theme,
+        truncnorm,
         warnings,
     )
 
@@ -173,7 +177,7 @@ def _(mpl):
 
     # mapping temperature to color
     temperature_cmap = mpl.colormaps["inferno"]
-    temperature_cmap_norm = mpl.colors.Normalize(vmin=15.0, vmax=90.0)
+    temperature_cmap_norm = mpl.colors.Normalize(vmin=10.0, vmax=90.0)
 
     def T_to_color(temperature):
         if temperature < temperature_cmap_norm.vmin or temperature > temperature_cmap_norm.vmax:
@@ -648,7 +652,7 @@ def _(mo):
 
 
 @app.cell
-def _(axis_labels, fig_dir, mof_to_color, np, plt):
+def _(axis_labels, fig_dir, mof_to_color, mof_water_ads, np, plt):
     def viz_all_predicted_adsorption_isotherms(temperature, mof_water_ads):
         fig = plt.Figure()
         plt.xlabel(axis_labels["pressure"])
@@ -664,13 +668,40 @@ def _(axis_labels, fig_dir, mof_to_color, np, plt):
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.savefig(fig_dir + "/RT_ads_isotherms.pdf", format="pdf", bbox_inches="tight")
         plt.show()
+
+    viz_all_predicted_adsorption_isotherms(25, mof_water_ads)
     return (viz_all_predicted_adsorption_isotherms,)
 
 
-@app.cell
-def _(mof_water_ads, viz_all_predicted_adsorption_isotherms):
-    viz_all_predicted_adsorption_isotherms(25, mof_water_ads)
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""transition pressures vs. maxima (predicted) at room temperature""")
     return
+
+
+@app.cell
+def _(fig_dir, mof_to_color, mof_to_marker, mof_water_ads, mofs, plt):
+    def viz_step_locations(mof_water_ads, temperature):
+        plt.figure()
+        plt.xlabel("step location [relative humidity]")
+        plt.ylabel("water uptake [kg H$_2$O/ kg MOF]\nat 100% relative humidity")
+        for mof in mofs:
+            # water ads at 100% RH
+            w = mof_water_ads[mof].predict_water_adsorption(temperature, 1.0)
+            # transition pressure  
+            p_star = mof_water_ads[mof].find_transition_p(temperature, "predicted")
+            print(f"{mof}: p* = {p_star} RH, w = {w}")
+
+            plt.scatter([p_star], [w], color=mof_to_color[mof], label=mof, s=60, marker=mof_to_marker[mof])
+        plt.xlim(0, 0.5)
+        plt.ylim(0, 0.6)
+        plt.title("T = {}°C".format(temperature))
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.savefig(fig_dir + "/isotherm_transitions.pdf", format="pdf", bbox_inches="tight")
+        plt.show()
+
+    viz_step_locations(mof_water_ads, 25)
+    return (viz_step_locations,)
 
 
 @app.cell
@@ -684,12 +715,11 @@ def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
             T = mof_water_ads[mof].fit_temperature
             data = mof_water_ads[mof]._read_ads_data(T)
 
-            # plt.scatter(
-            #     data['P/P_0'], data['Water Uptake [kg kg-1]'],
-            #     color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
-            #     facecolors='none', edgecolors=mof_to_color[mof], 
-            #     marker=mof_to_marker[mof], s=50
-            # )
+            # print max and transition pressure
+            print(mof)
+            print("\tp* = ", mof_water_ads[mof].find_transition_p(T, "data"))
+            print("\tmax: ", data['Water Uptake [kg kg-1]'].max())
+
             plt.plot(
                 data['P/P_0'], data['Water Uptake [kg kg-1]'],
                 color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
@@ -818,6 +848,14 @@ def _():
 
 
 @app.cell
+def _(os):
+    wdata_dir = "data/NOAA_weather_data"
+    wfiles = os.listdir(wdata_dir)
+    list(filter(lambda wfile: "Socorro" in wfile and str(2024) in wfile, wfiles))#[0]
+    return wdata_dir, wfiles
+
+
+@app.cell
 def _(
     city_to_state,
     fig_dir,
@@ -831,11 +869,12 @@ def _(
     water_vapor_presssure,
 ):
     class Weather:
-        def __init__(self, month, location, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
+        def __init__(self, month, year, location, day_min=1, day_max=33, time_to_hour={'day': 15, 'night': 5}):
             self.month = month
+            self.year = year
             self.location = location
 
-            print(f"reading 2024 {location} weather for {month}/{day_min} - {month}/{day_max}.")
+            print(f"reading {year} {location} weather for {month}/{day_min} - {month}/{day_max}.")
             print("\tnighttime adsorption hr: ", time_to_hour["night"])
             print("\tdaytime harvest hr: ", time_to_hour["day"])
 
@@ -862,7 +901,10 @@ def _(
             wfiles = os.listdir(wdata_dir)
             assert [self.location in wfile for wfile in wfiles]
 
-            filename = list(filter(lambda wfile: self.location in wfile, wfiles))[0]
+            filename = list(filter(lambda wfile: self.location in wfile and str(self.year) in wfile, wfiles))
+            assert len(filename) == 1
+            filename = filename[0]
+            print(f"\t...reading weather data from {filename}")
 
             col_names = open(wdata_dir + "/headers.txt", "r").readlines()[1].split()
 
@@ -876,7 +918,7 @@ def _(
             self.raw_data["date"] = pd.to_datetime(self.raw_data["LST_DATE"])
 
             # keep only self.month of 2024
-            self.raw_data = self.raw_data[self.raw_data["date"].dt.year == 2024] # keep only 2024
+            self.raw_data = self.raw_data[self.raw_data["date"].dt.year == self.year] # keep only 2024
             self.raw_data = self.raw_data[self.raw_data["date"].dt.month == self.month] # keep only 2024
 
             # day filter
@@ -1081,9 +1123,9 @@ def _(mo):
 
 @app.cell
 def _(Weather):
-    weather = Weather(6, "Tucson", day_min=1, day_max=10)
-    # weather = Weather(6, "Socorro", day_min=1, day_max=10)
-    weather = Weather(8, "Tucson", day_min=11, day_max=20)
+    weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
+    weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
+    # weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
 
@@ -1379,8 +1421,8 @@ def _(daily_water_demand, mass_water_harvester, mofs, water_del):
 
 
 @app.cell
-def _(fig_dir, mof_to_color, plt):
-    def viz_pure_mof_harvester(pure_mof_harvester, mofs):
+def _(fig_dir, mof_to_color, mofs, plt, pure_mof_harvester, weather):
+    def viz_pure_mof_harvester(pure_mof_harvester, mofs, weather):
         fig = plt.figure(figsize=(6.4, 3.5))
         plt.bar(
             range(len(mofs)), [pure_mof_harvester.loc[mof, "mass [kg]"] for mof in mofs], 
@@ -1388,15 +1430,14 @@ def _(fig_dir, mof_to_color, plt):
         )
         plt.xticks(range(len(mofs)), mofs, rotation=90)
         plt.ylabel("mass [kg]")
-        plt.savefig(fig_dir + f"/baseline.pdf", format="pdf", bbox_inches="tight")
+        plt.title("minimal-mass pure-MOF harvester")
+
+        lg = plt.legend(title=f"{weather.loc_timespan_title}", prop={'size': 12})
+        plt.savefig(fig_dir + f"/pure_MOF_harvester_{weather.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
         plt.show()
+
+    viz_pure_mof_harvester(pure_mof_harvester, mofs, weather)
     return (viz_pure_mof_harvester,)
-
-
-@app.cell
-def _(mofs, pure_mof_harvester, viz_pure_mof_harvester):
-    viz_pure_mof_harvester(pure_mof_harvester, mofs)
-    return
 
 
 @app.cell(hide_code=True)
@@ -1419,13 +1460,16 @@ def _(linprog, np, pd, warnings):
         # water delivery data on each day for each MOF
         water_del, 
         # water needed per day [kg]
-        daily_water_demand
+        daily_water_demand,
+        # print stuff?
+        verbose=True
     ):
         n_mofs = len(mofs)
         n_days = water_del.shape[0]
 
-        print(f"optimizing water harvest for {n_mofs} MOFs over {n_days} days...")
-        print(f"\tdrinking water demand [kg] : {daily_water_demand}")
+        if verbose:
+            print(f"optimizing water harvest for {n_mofs} MOFs over {n_days} days...")
+            print(f"\tdrinking water demand [kg] : {daily_water_demand}")
 
         # create W matrix
         #  w[d, m] = water delivery [g/g] on day d by MOF m
@@ -1453,11 +1497,12 @@ def _(linprog, np, pd, warnings):
             warnings.warn("yikes! failure to solve linear program.")
             return res
         else:
-            print("\toptimization successful.")
-            print("\t\tmin mass of water harvester [kg]: ", res.fun)
-            print("\t\toptimal composition:")
-            for (m, mof) in enumerate(mofs):
-                print(f"\t\t\t{mof}: {res.x[m]} kg")
+            if verbose:
+                print("\toptimization successful.")
+                print("\t\tmin mass of water harvester [kg]: ", res.fun)
+                print("\t\toptimal composition:")
+                for (m, mof) in enumerate(mofs):
+                    print(f"\t\t\t{mof}: {res.x[m]} kg")
 
         opt_info = {
             'active constraints': [d for d, s in enumerate(res.slack) if s == 0],
@@ -1480,8 +1525,17 @@ def _(mofs, optimize_harvester, water_del):
 
 
 @app.cell
-def _(fig_dir, mof_to_color, np, plt):
-    def viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester, weather):
+def _(
+    fig_dir,
+    mof_to_color,
+    mofs,
+    np,
+    opt_mass_of_mofs,
+    plt,
+    pure_mof_harvester,
+    weather,
+):
+    def viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester, weather, save_tag=""):
         fig = plt.figure(figsize=(6.4 *0.8, 3.6*.8))
         plt.ylabel("mass [kg MOF]")
 
@@ -1493,16 +1547,17 @@ def _(fig_dir, mof_to_color, np, plt):
         )
 
         # baseline of optimal pure-MOF water harvester
-        plt.axhline(
-            pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--"
-        )
-        if not weather.month == 8 and weather.location == "Tucson":
-            plt.text((len(mofs) + 1.5) / 2, pure_mof_harvester["mass [kg]"].min(), "optimal pure-MOF bed", fontsize=12,
-                        verticalalignment='center', horizontalalignment="center", 
-                        bbox=dict(boxstyle='round', facecolor='white', alpha=0.75, edgecolor='none')
+        if pure_mof_harvester is not None:
+            plt.axhline(
+                pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--"
             )
-        opt_pure_mof = pure_mof_harvester.sort_values("mass [kg]").index[0]
-        print("opt pure MOF: ", opt_pure_mof)
+            if not weather.month == 8 and weather.location == "Tucson":
+                plt.text((len(mofs) + 1.5) / 2, pure_mof_harvester["mass [kg]"].min(), "optimal pure-MOF bed", fontsize=12,
+                            verticalalignment='center', horizontalalignment="center", 
+                            bbox=dict(boxstyle='round', facecolor='white', alpha=0.75, edgecolor='none')
+                )
+            opt_pure_mof = pure_mof_harvester.sort_values("mass [kg]").index[0]
+            print("opt pure MOF: ", opt_pure_mof)
 
         # total mass of device, broken down
         x_pos = len(mofs) + 1.
@@ -1525,7 +1580,8 @@ def _(fig_dir, mof_to_color, np, plt):
         lg.get_title().set_fontsize(14) 
         # x, y limits
         plt.xlim(-0.75, x_pos+2.6)
-        plt.ylim(0, pure_mof_harvester["mass [kg]"].min() * 1.1)
+        if pure_mof_harvester is not None:
+            plt.ylim(0, pure_mof_harvester["mass [kg]"].min() * 1.1)
 
         # highlight second plot
         plt.fill_betweenx(
@@ -1542,29 +1598,54 @@ def _(fig_dir, mof_to_color, np, plt):
 
         # save
         plt.savefig(
-            fig_dir + f"/opt_composition_{weather.loc_timespan_title}.pdf", 
+            fig_dir + f"/opt_composition_{weather.loc_timespan_title}" + save_tag + ".pdf", 
             format="pdf", bbox_inches="tight"
         )
         plt.show()
-    return (viz_optimal_harvester,)
 
-
-@app.cell
-def _(
-    mofs,
-    opt_mass_of_mofs,
-    pure_mof_harvester,
-    viz_optimal_harvester,
-    weather,
-):
     viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester, weather)
-    return
+    return (viz_optimal_harvester,)
 
 
 @app.cell
 def _(opt_mass_of_mofs):
     opt_mass_of_mofs / opt_mass_of_mofs["mass [kg]"].sum()
     return
+
+
+@app.cell
+def _():
+    def get_active_mofs(opt_mass_of_mofs):
+        return opt_mass_of_mofs[opt_mass_of_mofs["mass [kg]"] > 0.0].index.values
+
+    def get_nonactive_mofs(opt_mass_of_mofs):
+        return opt_mass_of_mofs[opt_mass_of_mofs["mass [kg]"] == 0.0].index.values
+    return get_active_mofs, get_nonactive_mofs
+
+
+@app.cell
+def _(fig_dir, get_active_mofs, mof_to_color, opt_mass_of_mofs, plt, weather):
+    def viz_optimal_harvester_pie(opt_mass_of_mofs, weather, save_fig=True):
+        active_mofs = get_active_mofs(opt_mass_of_mofs)
+        ms = [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in active_mofs]
+
+        total_mass = opt_mass_of_mofs["mass [kg]"].sum()
+
+        fig, ax = plt.subplots()
+        ax.pie(
+            ms, labels=active_mofs, 
+            colors=[mof_to_color[mof] for mof in active_mofs]
+        )
+        plt.title(f"total mass: {total_mass:.1f} kg")
+        if save_fig:
+            plt.savefig(
+                fig_dir + f"/opt_composition_pie{weather.loc_timespan_title}.pdf", 
+                format="pdf", bbox_inches="tight"
+            )
+        plt.show()
+
+    viz_optimal_harvester_pie(opt_mass_of_mofs, weather)
+    return (viz_optimal_harvester_pie,)
 
 
 @app.cell(hide_code=True)
@@ -1653,18 +1734,162 @@ def _(opt_info):
 
 
 @app.cell
-def _(my_date_format, opt_info, plt, weather):
+def _(fig_dir, my_date_format, opt_info, plt, weather):
     def viz_marginals(opt_info, weather):
         plt.figure(figsize=(6.4 * 0.8, 3.6 * 0.8))
-        plt.bar(weather.ads_des_conditions["date"], opt_info["marginals"])
+        plt.bar(weather.ads_des_conditions["date"], -opt_info["marginals"])
         plt.xticks(rotation=90)
         plt.ylabel("shadow price\n[kg MOF / kg H$_2$O]")
         plt.gca().xaxis.set_major_formatter(my_date_format)
-        plt.savefig(f"shadow_prices_{weather.loc_timespan_title}.pdf", format="pdf")
+        lg = plt.legend(title=f"{weather.loc_timespan_title}", prop={'size': 12})
+        plt.savefig(fig_dir + f"/shadow_prices_{weather.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
         plt.show()
 
     viz_marginals(opt_info, weather)
     return (viz_marginals,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+        ### sensitivity analysis
+
+        what happens if we perturb the predicted water delivery?
+        """
+    )
+    return
+
+
+@app.cell
+def _(optimize_harvester):
+    def design_under_perturbed_water_del(mofs, water_del, daily_water_demand, mof, x):
+        # perturb water delivery of MOF x by 10%
+        perturbed_water_del = water_del.copy()
+        perturbed_water_del[mof + " water delivery [g/g]"] *= (1.0 + x)
+
+        opt_mass_of_mofs, min_mass, opt_info = optimize_harvester(
+            mofs, perturbed_water_del, daily_water_demand, verbose=False
+        )
+
+        return opt_mass_of_mofs, min_mass, opt_info
+    return (design_under_perturbed_water_del,)
+
+
+@app.cell
+def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
+    def sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1):
+        old_opt_mass_of_mofs = opt_mass_of_mofs["mass [kg]"].sum()
+        print("old mass = ", old_opt_mass_of_mofs)
+        active_mofs = get_active_mofs(opt_mass_of_mofs)
+        nonactive_mofs = get_nonactive_mofs(opt_mass_of_mofs)
+
+        # increase water delivery of non-active MOFs by 10%. 
+        #   does the set of active MOFs change?
+        for mof in nonactive_mofs:
+            new_opt_mass_of_mofs, _, _ = design_under_perturbed_water_del(
+                opt_mass_of_mofs.index, water_del, daily_water_demand, mof, x
+            )
+            new_active_mofs = get_active_mofs(new_opt_mass_of_mofs)
+            new_mass = new_opt_mass_of_mofs["mass [kg]"].sum()
+        
+            if set(new_active_mofs) != set(active_mofs):
+                print(f"increasing water delivery of {mof} by {x} changes composition to {new_active_mofs}.")
+                print("\tmass % change = ", (new_mass - old_opt_mass_of_mofs) / old_opt_mass_of_mofs)
+
+        # decrease water delivery of active MOFs by 10%. 
+        #   does the set of active MOFs change?
+        for mof in active_mofs:
+            new_opt_mass_of_mofs, _, _ = design_under_perturbed_water_del(
+                opt_mass_of_mofs.index, water_del, daily_water_demand, mof, -x
+            )
+            new_active_mofs = get_active_mofs(new_opt_mass_of_mofs)
+            new_mass = new_opt_mass_of_mofs["mass [kg]"].sum()
+        
+            if set(new_active_mofs) != set(active_mofs):
+                print(f"decreasing water delivery of {mof} by {x} changes composition to {new_active_mofs}.")
+                print("\tmass % change = ", (new_mass - old_opt_mass_of_mofs) / old_opt_mass_of_mofs)
+    return (sensitivity_analysis,)
+
+
+@app.cell
+def _(daily_water_demand, opt_mass_of_mofs, sensitivity_analysis, water_del):
+    sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""how about perturbing the weather?""")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    checkbox = mo.ui.checkbox(label="run sensitivity")
+    checkbox
+    return (checkbox,)
+
+
+@app.cell
+def _(
+    checkbox,
+    copy,
+    daily_water_demand,
+    mof_water_ads,
+    mofs,
+    optimize_harvester,
+    predict_water_delivery,
+    truncnorm,
+    viz_optimal_harvester,
+    weather,
+):
+    def design_under_perturbed_weather(weather, mof_water_ads, daily_water_demand, sigma):
+        ###
+        # modify weather
+        ###
+        new_weather = copy.deepcopy(weather)
+        n_days = new_weather.ads_des_conditions.shape[0]
+
+        # lower- and upper-bounds on variables
+        lb = {"T [°C]": -10.0, "P/P0": 0.0} # for truncation
+        ub = {"T [°C]": 100.0, "P/P0": 1.0}
+
+        for ads_des in ["ads ", "des "]:
+            for var in ["T [°C]", "P/P0"]:
+                # truncated normal distribution
+                new_weather.ads_des_conditions[ads_des + var] = truncnorm.rvs(
+                    lb[var], ub[var], scale=sigma[var], size=n_days, loc=new_weather.ads_des_conditions[ads_des + var]
+                )
+
+        ###
+        # predict water deliveries under modified weather
+        ###
+        new_water_del = predict_water_delivery(new_weather, {mof: mof_water_ads[mof] for mof in mofs})
+
+        ###
+        # design adsorbent bed
+        ###
+        opt_mass_of_mofs, min_mass, opt_info = optimize_harvester(mofs, new_water_del, daily_water_demand, verbose=False)
+    
+        return opt_mass_of_mofs
+
+    sigma = {"T [°C]": 2.0, "P/P0": 0.02}
+    n_weather_designs = 12
+
+    if checkbox.value:
+        perturbed_weather_designs = [
+            design_under_perturbed_weather(weather, mof_water_ads, daily_water_demand, sigma) for _d in range(n_weather_designs)
+        ]
+    
+        for _d in range(n_weather_designs):
+            viz_optimal_harvester(mofs, perturbed_weather_designs[_d], None, weather, save_tag=f"modified_weather_{_d}")
+    return (
+        design_under_perturbed_weather,
+        n_weather_designs,
+        perturbed_weather_designs,
+        sigma,
+    )
 
 
 @app.cell(hide_code=True)
@@ -1691,7 +1916,7 @@ def _(
     plt,
     predict_water_delivery,
 ):
-    _weather = Weather(month=7, location="Tucson", day_min=0, day_max=10)
+    _weather = Weather(month=7, year=2024, location="Tucson", day_min=0, day_max=10)
 
     _mofs = ["MOF-801", "Al-Fum"]
 
