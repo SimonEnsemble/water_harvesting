@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.8"
+__generated_with = "0.11.0"
 app = marimo.App(width="medium")
 
 
@@ -526,7 +526,12 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures, mofs):
+def _(
+    MOFWaterAds,
+    mof_to_data_temperatures,
+    mof_to_fit_temperatures,
+    mofs,
+):
     mof_water_ads = {mof: MOFWaterAds(mof, mof_to_fit_temperatures[mof], mof_to_data_temperatures[mof]) for mof in mofs}
     return (mof_water_ads,)
 
@@ -1072,10 +1077,11 @@ def _(
 
             self.daynight_wdata.sort_values(by="datetime", inplace=True)
 
-            # sequence day by day
+            # assert sequence day by day ie none missing
             days = self.daynight_wdata.loc[1:, "datetime"].dt.day.values
-            days_shifted_by_one = self.daynight_wdata.loc[0:self.daynight_wdata.index[-2], "datetime"].dt.day.values
-            assert np.all((days - days_shifted_by_one) == 1)
+            if len(days) > 1:
+                days_shifted_by_one = self.daynight_wdata.loc[0:self.daynight_wdata.index[-2], "datetime"].dt.day.values
+                assert np.all((days - days_shifted_by_one) == 1)
 
         def _gen_ads_des_conditions(self):
             self.ads_des_conditions = self.daynight_wdata.rename(columns=
@@ -1624,7 +1630,14 @@ def _():
 
 
 @app.cell
-def _(fig_dir, get_active_mofs, mof_to_color, opt_mass_of_mofs, plt, weather):
+def _(
+    fig_dir,
+    get_active_mofs,
+    mof_to_color,
+    opt_mass_of_mofs,
+    plt,
+    weather,
+):
     def viz_optimal_harvester_pie(opt_mass_of_mofs, weather, save_fig=True):
         active_mofs = get_active_mofs(opt_mass_of_mofs)
         ms = [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in active_mofs]
@@ -1777,7 +1790,11 @@ def _(optimize_harvester):
 
 
 @app.cell
-def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
+def _(
+    design_under_perturbed_water_del,
+    get_active_mofs,
+    get_nonactive_mofs,
+):
     def sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1):
         old_opt_mass_of_mofs = opt_mass_of_mofs["mass [kg]"].sum()
         print("old mass = ", old_opt_mass_of_mofs)
@@ -1792,7 +1809,7 @@ def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
             )
             new_active_mofs = get_active_mofs(new_opt_mass_of_mofs)
             new_mass = new_opt_mass_of_mofs["mass [kg]"].sum()
-        
+
             if set(new_active_mofs) != set(active_mofs):
                 print(f"increasing water delivery of {mof} by {x} changes composition to {new_active_mofs}.")
                 print("\tmass % change = ", (new_mass - old_opt_mass_of_mofs) / old_opt_mass_of_mofs)
@@ -1805,7 +1822,7 @@ def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
             )
             new_active_mofs = get_active_mofs(new_opt_mass_of_mofs)
             new_mass = new_opt_mass_of_mofs["mass [kg]"].sum()
-        
+
             if set(new_active_mofs) != set(active_mofs):
                 print(f"decreasing water delivery of {mof} by {x} changes composition to {new_active_mofs}.")
                 print("\tmass % change = ", (new_mass - old_opt_mass_of_mofs) / old_opt_mass_of_mofs)
@@ -1813,7 +1830,12 @@ def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
 
 
 @app.cell
-def _(daily_water_demand, opt_mass_of_mofs, sensitivity_analysis, water_del):
+def _(
+    daily_water_demand,
+    opt_mass_of_mofs,
+    sensitivity_analysis,
+    water_del,
+):
     sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1)
     return
 
@@ -1871,7 +1893,7 @@ def _(
         # design adsorbent bed
         ###
         opt_mass_of_mofs, min_mass, opt_info = optimize_harvester(mofs, new_water_del, daily_water_demand, verbose=False)
-    
+
         return opt_mass_of_mofs
 
     sigma = {"T [°C]": 2.0, "P/P0": 0.02}
@@ -1881,7 +1903,7 @@ def _(
         perturbed_weather_designs = [
             design_under_perturbed_weather(weather, mof_water_ads, daily_water_demand, sigma) for _d in range(n_weather_designs)
         ]
-    
+
         for _d in range(n_weather_designs):
             viz_optimal_harvester(mofs, perturbed_weather_designs[_d], None, weather, save_tag=f"modified_weather_{_d}")
     return (
@@ -2001,6 +2023,78 @@ def _(
 @app.cell
 def _(sns):
     sns.color_palette("pastel")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+        # comparison with MOF-801 harvester in the field
+
+        on 22 October 2017 in Scottsdale, AZ, USA. 
+
+        [publication link](https://www.science.org/doi/10.1126/sciadv.aat3198).
+
+        > Using 0.825 kg of MOF-801/G, 55 g of water was collected
+        """
+    )
+    return
+
+
+@app.cell
+def _():
+    field_mass = 0.825 # kg
+    return (field_mass,)
+
+
+@app.cell
+def _():
+    field_daily_water_demand = 55 / 1000 # kg water, reality
+    # field_daily_water_demand = 78 / 1000 # kg water, lab
+    return (field_daily_water_demand,)
+
+
+@app.cell
+def _(Weather):
+    field_weather = Weather(10, 2017, "Tucson", day_min=22, day_max=22)
+    field_weather.daynight_wdata
+    return (field_weather,)
+
+
+@app.cell
+def _(field_weather):
+    field_weather.viz_timeseries(save=False, incl_legend=True)
+    return
+
+
+@app.cell
+def _(field_weather, mof_water_ads, predict_water_delivery):
+    field_water_del = predict_water_delivery(field_weather, {mof: mof_water_ads[mof] for mof in ["MOF-801"]})
+    field_water_del
+    return (field_water_del,)
+
+
+@app.cell
+def _(field_daily_water_demand, field_water_del):
+    field_daily_water_demand / field_water_del["MOF-801 water delivery [g/g]"]
+    return
+
+
+@app.cell
+def _(field_daily_water_demand, field_water_del, mass_water_harvester):
+    mass_water_harvester(["MOF-801"], field_water_del, field_daily_water_demand)
+    return
+
+
+@app.cell
+def _(field_daily_water_demand, field_water_del, optimize_harvester):
+    optimize_harvester(["MOF-801"], field_water_del, field_daily_water_demand)
+    return
+
+
+@app.cell
+def _():
     return
 
 
