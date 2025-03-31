@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.0"
+__generated_with = "0.12.0"
 app = marimo.App(width="medium")
 
 
@@ -95,7 +95,7 @@ def _(mo):
         | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 | ✅ | caution: moderate hysteresis | ✅ |
         | Al-Fum | [link](https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d) | plot digitized from Fig. 3 | ✅ | |✅ |
         | MIP-200 | [link](https://www.nature.com/articles/s41560-018-0261-6) | plot digitized from Fig. 2 | ✅ ||✅ |
-
+        | MOF-801-G | [link](https://www.science.org/doi/10.1126/sciadv.aat3198) | plot digitized from Fig. 2 | 
 
         we extracted all water adsorption data from plots in the papers using [plot digitizer](https://www.graphreader.com/v2). we took only the _adsorption_ branch, neglecting hysteresis.
 
@@ -526,12 +526,7 @@ def _(mo):
 
 
 @app.cell
-def _(
-    MOFWaterAds,
-    mof_to_data_temperatures,
-    mof_to_fit_temperatures,
-    mofs,
-):
+def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures, mofs):
     mof_water_ads = {mof: MOFWaterAds(mof, mof_to_fit_temperatures[mof], mof_to_data_temperatures[mof]) for mof in mofs}
     return (mof_water_ads,)
 
@@ -1630,14 +1625,7 @@ def _():
 
 
 @app.cell
-def _(
-    fig_dir,
-    get_active_mofs,
-    mof_to_color,
-    opt_mass_of_mofs,
-    plt,
-    weather,
-):
+def _(fig_dir, get_active_mofs, mof_to_color, opt_mass_of_mofs, plt, weather):
     def viz_optimal_harvester_pie(opt_mass_of_mofs, weather, save_fig=True):
         active_mofs = get_active_mofs(opt_mass_of_mofs)
         ms = [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in active_mofs]
@@ -1790,11 +1778,7 @@ def _(optimize_harvester):
 
 
 @app.cell
-def _(
-    design_under_perturbed_water_del,
-    get_active_mofs,
-    get_nonactive_mofs,
-):
+def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
     def sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1):
         old_opt_mass_of_mofs = opt_mass_of_mofs["mass [kg]"].sum()
         print("old mass = ", old_opt_mass_of_mofs)
@@ -1830,12 +1814,7 @@ def _(
 
 
 @app.cell
-def _(
-    daily_water_demand,
-    opt_mass_of_mofs,
-    sensitivity_analysis,
-    water_del,
-):
+def _(daily_water_demand, opt_mass_of_mofs, sensitivity_analysis, water_del):
     sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1)
     return
 
@@ -2068,28 +2047,68 @@ def _(field_weather):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        """
+        eyeballing Fig. 3B in the paper and it says:
+
+        > 5% RH at 35° to 40°C during the day
+        > 40% RH at 10° to 15°C during the night
+
+        reasonably matches below except Tucson during the day appears a bit cooler.
+
+        they are able to heat the MOF to almost 90 degrees!
+        """
+    )
+    return
+
+
 @app.cell
-def _(field_weather, mof_water_ads, predict_water_delivery):
-    field_water_del = predict_water_delivery(field_weather, {mof: mof_water_ads[mof] for mof in ["MOF-801"]})
+def _(MOFWaterAds):
+    field_mof_water_ads = {"MOF-801G": MOFWaterAds("MOF-801G", 25, [25])}
+    return (field_mof_water_ads,)
+
+
+@app.cell
+def _(field_mof_water_ads, field_weather, predict_water_delivery):
+    field_water_del = predict_water_delivery(
+        field_weather, field_mof_water_ads
+    )
     field_water_del
     return (field_water_del,)
 
 
-@app.cell
-def _(field_daily_water_demand, field_water_del):
-    field_daily_water_demand / field_water_del["MOF-801 water delivery [g/g]"]
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""get MOF-801/G adsorption data""")
     return
 
 
 @app.cell
 def _(field_daily_water_demand, field_water_del, mass_water_harvester):
-    mass_water_harvester(["MOF-801"], field_water_del, field_daily_water_demand)
+    mass_water_harvester(["MOF-801G"], field_water_del, field_daily_water_demand)
     return
 
 
 @app.cell
 def _(field_daily_water_demand, field_water_del, optimize_harvester):
-    optimize_harvester(["MOF-801"], field_water_del, field_daily_water_demand)
+    optimize_harvester(["MOF-801G"], field_water_del, field_daily_water_demand)
+    return
+
+
+@app.cell
+def _(field_mof_water_ads, field_water_del, field_weather, viz_water_delivery):
+    viz_water_delivery(field_water_del, "MOF-801G", 0, field_mof_water_ads, field_weather)
+    return
+
+
+@app.cell
+def _(field_daily_water_demand):
+    # best case adsorb at 100% RH and desorb ALL
+    _water_del_max = 0.15 # g H20 / g MOF
+    field_daily_water_demand / _water_del_max
+    # so there's a huge loss of efficiency for their water harvester in real life...
     return
 
 
