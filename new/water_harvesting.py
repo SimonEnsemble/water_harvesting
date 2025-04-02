@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.12.0"
+__generated_with = "0.11.0"
 app = marimo.App(width="medium")
 
 
@@ -140,6 +140,7 @@ def _(random, sns):
     }
 
     mof_to_color = dict(zip(mofs, sns.color_palette("husl", len(mofs))))
+    mof_to_color["MOF-801G"] = "black"
 
     mof_to_marker = dict(zip(mofs, ['o', 's', 'd', 'X', '>', '<', 'P', 'D'])) # h next
     return (
@@ -526,7 +527,12 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures, mofs):
+def _(
+    MOFWaterAds,
+    mof_to_data_temperatures,
+    mof_to_fit_temperatures,
+    mofs,
+):
     mof_water_ads = {mof: MOFWaterAds(mof, mof_to_fit_temperatures[mof], mof_to_data_temperatures[mof]) for mof in mofs}
     return (mof_water_ads,)
 
@@ -937,7 +943,7 @@ def _(
                         water_vapor_presssure(day["SUR_TEMP"]), axis=1
             )
 
-        def viz_timeseries(self, save=False, incl_legend=True):
+        def viz_timeseries(self, save=False, incl_legend=True, legend_dx=0.0, legend_dy=0.0):
             place_to_color = {'air': "k", 'surface': "k"}
 
             fig, axs = plt.subplots(2, 1, sharex=True)#, figsize=(6.4*0.8, 4.8*.8))
@@ -992,9 +998,12 @@ def _(
             ) # day surface RH
             axs[1].set_ylim(0, 1)
             axs[1].set_yticks([0.2 * _i for _i in range(6)])
-            axs[1].xaxis.set_major_formatter(my_date_format)
+            if self.daynight_wdata.shape[0] > 1:
+                axs[1].xaxis.set_major_formatter(my_date_format)
             if incl_legend:
-                axs[1].legend(prop={'size': 13}, ncol=2, bbox_to_anchor=(0., 1.0, 1.0, .1), loc="center")#, loc="center left")
+                axs[1].legend(
+                    prop={'size': 13}, ncol=2, bbox_to_anchor=(0., 1.0 + legend_dy, 1.0 + legend_dx, .1), loc="center"
+                )#, loc="center left")
             # already got legend above
             if save:
                 plt.savefig(fig_dir + f"/weather_{self.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
@@ -1536,7 +1545,7 @@ def _(
     pure_mof_harvester,
     weather,
 ):
-    def viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester, weather, save_tag=""):
+    def viz_optimal_harvester(mofs, opt_mass_of_mofs, pure_mof_harvester, weather, save_tag="", ymax_override=None):
         fig = plt.figure(figsize=(6.4 *0.8, 3.6*.8))
         plt.ylabel("mass [kg MOF]")
 
@@ -1596,6 +1605,8 @@ def _(
             plt.ylim(0, 7)
         if weather.location == "Socorro":
             plt.ylim(0, 20)
+        if ymax_override:
+            plt.ylim(0, ymax_override)
 
         # save
         plt.savefig(
@@ -1625,7 +1636,14 @@ def _():
 
 
 @app.cell
-def _(fig_dir, get_active_mofs, mof_to_color, opt_mass_of_mofs, plt, weather):
+def _(
+    fig_dir,
+    get_active_mofs,
+    mof_to_color,
+    opt_mass_of_mofs,
+    plt,
+    weather,
+):
     def viz_optimal_harvester_pie(opt_mass_of_mofs, weather, save_fig=True):
         active_mofs = get_active_mofs(opt_mass_of_mofs)
         ms = [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in active_mofs]
@@ -1778,7 +1796,11 @@ def _(optimize_harvester):
 
 
 @app.cell
-def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
+def _(
+    design_under_perturbed_water_del,
+    get_active_mofs,
+    get_nonactive_mofs,
+):
     def sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1):
         old_opt_mass_of_mofs = opt_mass_of_mofs["mass [kg]"].sum()
         print("old mass = ", old_opt_mass_of_mofs)
@@ -1814,7 +1836,12 @@ def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
 
 
 @app.cell
-def _(daily_water_demand, opt_mass_of_mofs, sensitivity_analysis, water_del):
+def _(
+    daily_water_demand,
+    opt_mass_of_mofs,
+    sensitivity_analysis,
+    water_del,
+):
     sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1)
     return
 
@@ -2036,14 +2063,14 @@ def _():
 
 @app.cell
 def _(Weather):
-    field_weather = Weather(10, 2017, "Tucson", day_min=22, day_max=22)
+    field_weather = Weather(10, 2017, "Tucson", day_min=22, day_max=22, time_to_hour={'day': 14, 'night': 5})
     field_weather.daynight_wdata
     return (field_weather,)
 
 
 @app.cell
 def _(field_weather):
-    field_weather.viz_timeseries(save=False, incl_legend=True)
+    field_weather.viz_timeseries(save=True, incl_legend=True, legend_dy=-0.15)
     return
 
 
@@ -2071,12 +2098,25 @@ def _(MOFWaterAds):
 
 
 @app.cell
+def _(field_mof_water_ads):
+    field_mof_water_ads["MOF-801G"].viz_adsorption_isotherms(save=True)
+    return
+
+
+@app.cell
 def _(field_mof_water_ads, field_weather, predict_water_delivery):
     field_water_del = predict_water_delivery(
         field_weather, field_mof_water_ads
     )
     field_water_del
     return (field_water_del,)
+
+
+@app.cell
+def _(field_mass, field_water_del):
+    # predicted water delivered [g]
+    field_mass * field_water_del["MOF-801G water delivery [g/g]"].values * 1000
+    return
 
 
 @app.cell(hide_code=True)
@@ -2093,12 +2133,24 @@ def _(field_daily_water_demand, field_water_del, mass_water_harvester):
 
 @app.cell
 def _(field_daily_water_demand, field_water_del, optimize_harvester):
-    optimize_harvester(["MOF-801G"], field_water_del, field_daily_water_demand)
-    return
+    field_opt_mass_mofs = optimize_harvester(["MOF-801G"], field_water_del, field_daily_water_demand)
+    return (field_opt_mass_mofs,)
 
 
 @app.cell
-def _(field_mof_water_ads, field_water_del, field_weather, viz_water_delivery):
+def _(field_daily_water_demand, field_water_del, mass_water_harvester):
+    field_pure_mof_harvester = mass_water_harvester(["MOF-801G"], field_water_del, field_daily_water_demand)
+    field_pure_mof_harvester
+    return (field_pure_mof_harvester,)
+
+
+@app.cell
+def _(
+    field_mof_water_ads,
+    field_water_del,
+    field_weather,
+    viz_water_delivery,
+):
     viz_water_delivery(field_water_del, "MOF-801G", 0, field_mof_water_ads, field_weather)
     return
 
@@ -2109,6 +2161,23 @@ def _(field_daily_water_demand):
     _water_del_max = 0.15 # g H20 / g MOF
     field_daily_water_demand / _water_del_max
     # so there's a huge loss of efficiency for their water harvester in real life...
+    return
+
+
+@app.cell
+def _(
+    field_opt_mass_mofs,
+    field_pure_mof_harvester,
+    field_weather,
+    viz_optimal_harvester,
+):
+    viz_optimal_harvester(["MOF-801G"], field_opt_mass_mofs[0], field_pure_mof_harvester, field_weather, ymax_override=0.5)
+    return
+
+
+@app.cell
+def _(field_opt_mass_mofs):
+    field_opt_mass_mofs[0]
     return
 
 
