@@ -2176,13 +2176,8 @@ def _(
 
 
 @app.cell
-def _(field_opt_mass_mofs):
-    field_opt_mass_mofs[0]
-    return
-
-
-@app.cell
-def _():
+def _(field_mass, field_opt_mass_mofs):
+    field_mass / field_opt_mass_mofs[0].values
     return
 
 
