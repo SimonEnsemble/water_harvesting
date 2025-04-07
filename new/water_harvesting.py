@@ -1133,9 +1133,9 @@ def _(mo):
 
 @app.cell
 def _(Weather):
-    weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
-    weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
-    # weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
+    # weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
+    # weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
+    weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
 
@@ -1535,6 +1535,12 @@ def _(mofs, optimize_harvester, water_del):
 
 
 @app.cell
+def _(pure_mof_harvester):
+    pure_mof_harvester
+    return
+
+
+@app.cell
 def _(
     fig_dir,
     mof_to_color,
@@ -1558,15 +1564,16 @@ def _(
 
         # baseline of optimal pure-MOF water harvester
         if pure_mof_harvester is not None:
+            opt_pure_mof = pure_mof_harvester["mass [kg]"].idxmin()
             plt.axhline(
                 pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--"
             )
-            if not weather.month == 8 and weather.location == "Tucson":
-                plt.text((len(mofs) + 1.5) / 2, pure_mof_harvester["mass [kg]"].min(), "optimal pure-MOF bed", fontsize=12,
-                            verticalalignment='center', horizontalalignment="center", 
+            if not ((weather.month == 8) and (weather.location == "Tucson")):
+                plt.text(-0.5, pure_mof_harvester["mass [kg]"].min(), 
+                         f"optimal single-MOF bed ({opt_pure_mof})", fontsize=12,
+                            verticalalignment='center', horizontalalignment="left", 
                             bbox=dict(boxstyle='round', facecolor='white', alpha=0.75, edgecolor='none')
                 )
-            opt_pure_mof = pure_mof_harvester.sort_values("mass [kg]").index[0]
             print("opt pure MOF: ", opt_pure_mof)
 
         # total mass of device, broken down
