@@ -985,16 +985,16 @@ def _(
                 self.raw_data["datetime"], self.raw_data["SUR_RH_HR_AVG"] / 100, 
                 color=place_to_color["surface"], label="near-surface air", linestyle="--"
             )
-            axs[1].set_ylabel("relative humidity [%]")
+            axs[1].set_ylabel("relative humidity")
             axs[1].scatter(
                 self.wdata["night"]["datetime"], self.wdata["night"]["RH_HR_AVG"] / 100,
                 edgecolors="black", clip_on=False,
-                marker="^", color=time_to_color["night"], zorder=10, s=100,  label="adsorption conditions"
+                marker="^", color=time_to_color["night"], zorder=10, s=100,  label="capture conditions"
             ) # nighttime RH
             axs[1].scatter(
                 self.wdata["day"]["datetime"], self.wdata["day"]["SUR_RH_HR_AVG"] / 100,
                 edgecolors="black", clip_on=False,
-                marker="v", color=time_to_color["day"], zorder=10, s=100, label="desorption conditions"
+                marker="v", color=time_to_color["day"], zorder=10, s=100, label="release conditions"
             ) # day surface RH
             axs[1].set_ylim(0, 1)
             axs[1].set_yticks([0.2 * _i for _i in range(6)])
@@ -1133,9 +1133,9 @@ def _(mo):
 
 @app.cell
 def _(Weather):
-    # weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
+    weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
     # weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
-    weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
+    # weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
 
@@ -1295,7 +1295,7 @@ def _(
             plt.scatter(
                 p_ovr_p0, mof_water_ads[mof].predict_water_adsorption(T, p_ovr_p0), 
                 marker="^" if ads_or_des == "ads" else "v", s=200, zorder=100, color=time_to_color[ads_or_des], 
-                label="adsorption" if ads_or_des == "ads" else "desorption", edgecolors="black", clip_on=False
+                label="capture conditions" if ads_or_des == "ads" else "release conditions", edgecolors="black", clip_on=False
             )
         plt.title(mof)
         date = water_del_MOF.loc[day_id, "date"].strftime(my_date_format_str)# date()
@@ -1327,6 +1327,18 @@ def _(mof_water_ads, viz_water_delivery, water_del, weather):
 @app.cell
 def _(mof_water_ads, viz_water_delivery, water_del, weather):
     viz_water_delivery(water_del, "CAU-23", 2, mof_water_ads, weather)
+    return
+
+
+@app.cell
+def _(mof_water_ads, viz_water_delivery, water_del, weather):
+    viz_water_delivery(water_del, "Al-Fum", 9, mof_water_ads, weather)
+    return
+
+
+@app.cell
+def _(mof_water_ads, viz_water_delivery, water_del, weather):
+    viz_water_delivery(water_del, "MIL-160", 9, mof_water_ads, weather)
     return
 
 
@@ -1535,8 +1547,7 @@ def _(mofs, optimize_harvester, water_del):
 
 
 @app.cell
-def _(pure_mof_harvester):
-    pure_mof_harvester
+def _():
     return
 
 
@@ -1565,16 +1576,19 @@ def _(
         # baseline of optimal pure-MOF water harvester
         if pure_mof_harvester is not None:
             opt_pure_mof = pure_mof_harvester["mass [kg]"].idxmin()
+            print("opt pure MOF: ", opt_pure_mof)
+
             plt.axhline(
                 pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--"
             )
-            if not ((weather.month == 8) and (weather.location == "Tucson")):
+
+            if not ((weather.month == 8) and (weather.location == "Tucson")) and not ("MOF-801G" in pure_mof_harvester.index):
                 plt.text(-0.5, pure_mof_harvester["mass [kg]"].min(), 
                          f"optimal single-MOF bed ({opt_pure_mof})", fontsize=12,
                             verticalalignment='center', horizontalalignment="left", 
                             bbox=dict(boxstyle='round', facecolor='white', alpha=0.75, edgecolor='none')
                 )
-            print("opt pure MOF: ", opt_pure_mof)
+
 
         # total mass of device, broken down
         x_pos = len(mofs) + 1.
@@ -2009,7 +2023,7 @@ def _(
     # pure-MOF harvester
     plt.scatter(
         _pure_mof_harvester.loc[_mofs[0], "mass [kg]"], 0.0, 
-        label="optimal\npure-MOF bed", color="C0", clip_on=False, s=100, zorder=100, edgecolor="black"
+        label="optimal\nsingle-MOF bed", color="C0", clip_on=False, s=100, zorder=100, edgecolor="black"
     )
     plt.scatter(
         0.0, _pure_mof_harvester.loc[_mofs[1], "mass [kg]"], 
