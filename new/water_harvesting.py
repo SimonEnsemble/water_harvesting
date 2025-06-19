@@ -365,8 +365,9 @@ def _(
                 data = self._read_ads_data(temperature)
 
                 # draw data
-                plt.scatter(
+                plt.plot(
                     data['P/P_0'], data['Water Uptake [kg kg-1]'], 
+                    marker="s",
                     clip_on=False, color=T_to_color(temperature), label="{}°C".format(temperature)
                 )        
                 if incl_predictions:
@@ -488,7 +489,7 @@ def _(mo):
 
 @app.cell
 def _(mof):
-    mof.viz_adsorption_isotherms(save=True)
+    mof.viz_adsorption_isotherms(save=True, incl_predictions=False)
     return
 
 
@@ -1134,7 +1135,7 @@ def _(mo):
 @app.cell
 def _(Weather):
     weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
-    # weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
+    weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
     # weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
@@ -1343,6 +1344,12 @@ def _(mof_water_ads, viz_water_delivery, water_del, weather):
 
 
 @app.cell
+def _(mof_water_ads, viz_water_delivery, water_del, weather):
+    viz_water_delivery(water_del, "MOF-801", 9, mof_water_ads, weather)
+    return
+
+
+@app.cell
 def _(fig_dir, mof_to_color, mof_to_marker, my_date_format, plt):
     def viz_water_delivery_time_series(water_del, weather):
         # infer mof list
@@ -1547,11 +1554,6 @@ def _(mofs, optimize_harvester, water_del):
 
 
 @app.cell
-def _():
-    return
-
-
-@app.cell
 def _(
     fig_dir,
     mof_to_color,
@@ -1643,6 +1645,12 @@ def _(
 @app.cell
 def _(opt_mass_of_mofs):
     opt_mass_of_mofs / opt_mass_of_mofs["mass [kg]"].sum()
+    return
+
+
+@app.cell
+def _(opt_mass_of_mofs, pure_mof_harvester):
+    print("ratio of mix-to-pure mass harvester: ", opt_mass_of_mofs["mass [kg]"].sum() / pure_mof_harvester["mass [kg]"].min())
     return
 
 
