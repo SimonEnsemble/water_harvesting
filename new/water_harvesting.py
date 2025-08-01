@@ -121,10 +121,10 @@ def _(random, sns):
         "MOF-801": [15, 25, 45, 65],
         "KMF-1": [25],
         "CAU-23": [25, 40, 60],
-        "MIL-160": [20],
+        "MIL-160": [20, 30, 40],
         "MOF-303": [25],
-        "CAU-10-H": [25],
-        "Al-Fum": [25],
+        "CAU-10-H": [25, 40, 60],
+        "Al-Fum": [25, 40, 60],
         "MIP-200": [30]
     }
 
@@ -364,18 +364,25 @@ def _(
                 # read ads isotherm data
                 data = self._read_ads_data(temperature)
 
-                # draw data
-                plt.plot(
-                    data['P/P_0'], data['Water Uptake [kg kg-1]'], 
-                    marker="s",
-                    clip_on=False, color=T_to_color(temperature), label="{}°C".format(temperature)
-                )        
+                 
                 if incl_predictions:
                     p_ovr_p0s = np.linspace(0, 1, 100)[1:]
                     plt.plot(
                         p_ovr_p0s, [self.predict_water_adsorption(temperature, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
                         color=T_to_color(temperature)
                     )
+                    plt.scatter(
+                        data['P/P_0'], data['Water Uptake [kg kg-1]'], 
+                        marker="s",
+                        clip_on=False, color=T_to_color(temperature), label="{}°C".format(temperature)
+                    )   
+                else:
+                     # draw data
+                    plt.plot(
+                        data['P/P_0'], data['Water Uptake [kg kg-1]'], 
+                        marker="s",
+                        clip_on=False, color=T_to_color(temperature), label="{}°C".format(temperature)
+                    )      
             plt.ylim(ymin=0)
             plt.xlim(xmin=0)
             plt.title(self.mof)
@@ -558,7 +565,7 @@ def _(mo):
 
 @app.cell
 def _(mof_water_ads):
-    mof_water_ads["CAU-23"].viz_adsorption_isotherms(save=True)
+    mof_water_ads["CAU-23"].viz_adsorption_isotherms(save=True, incl_predictions=True)
     return
 
 
@@ -575,11 +582,6 @@ def _(mof_to_data_temperatures, mof_water_ads):
     return
 
 
-@app.cell
-def _():
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""## MIL-160""")
@@ -588,7 +590,7 @@ def _(mo):
 
 @app.cell
 def _(mof_water_ads):
-    mof_water_ads["MIL-160"].viz_adsorption_isotherms()
+    mof_water_ads["MIL-160"].viz_adsorption_isotherms(incl_predictions=True)
     return
 
 
@@ -612,7 +614,7 @@ def _(mo):
 
 @app.cell
 def _(mof_water_ads):
-    mof_water_ads["CAU-10-H"].viz_adsorption_isotherms()
+    mof_water_ads["CAU-10-H"].viz_adsorption_isotherms(incl_predictions=True)
     return
 
 
