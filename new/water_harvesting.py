@@ -860,7 +860,7 @@ def _():
 def _(os):
     wdata_dir = "data/NOAA_weather_data"
     wfiles = os.listdir(wdata_dir)
-    list(filter(lambda wfile: "Socorro" in wfile and str(2024) in wfile, wfiles))#[0]
+    list(filter(lambda wfile: "CRNH" in wfile, wfiles))
     return wdata_dir, wfiles
 
 
@@ -883,9 +883,12 @@ def _(
             self.year = year
             self.location = location
 
+            self.duration = np.array([-2, -1, 0, 1, 2]) # for averaging T, humidity
+
             print(f"reading {year} {location} weather for {month}/{day_min} - {month}/{day_max}.")
             print("\tnighttime adsorption hr: ", time_to_hour["night"])
             print("\tdaytime harvest hr: ", time_to_hour["day"])
+            print("\tads/des duration [hr]: ", len(self.duration))
 
             self.relevant_weather_cols = ["T_HR_AVG", "RH_HR_AVG", "SUR_TEMP", "SUR_RH_HR_AVG"] # latter inferred
 
@@ -1007,6 +1010,16 @@ def _(
                 axs[1].legend(
                     prop={'size': 13}, ncol=2, bbox_to_anchor=(0., 1.0 + legend_dy, 1.0 + legend_dx, .1), loc="center"
                 )#, loc="center left")
+
+            # shade harvesting and desorption window
+            for time in ["day", "night"]:
+                for id in self.wdata[time].index:
+                    now = self.wdata[time].loc[id, "datetime"]
+                    start = now + pd.Timedelta(hours=self.duration.min())
+                    end   = now + pd.Timedelta(hours=self.duration.max())
+                    for ax in axs:
+                        ax.axvspan(start, end, color=time_to_color[time], alpha=0.2)
+                    
             # already got legend above
             if save:
                 plt.savefig(fig_dir + f"/weather_{self.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
@@ -1064,6 +1077,25 @@ def _(
             for time in ["day", "night"]:
                 self.wdata[time] = self.raw_data[self.raw_data["datetime"].dt.hour == self.time_to_hour[time]]
                 self.wdata[time] = self.raw_data[self.raw_data["datetime"].dt.hour == self.time_to_hour[time]]
+                # over-write with average conditions
+                for col in self.relevant_weather_cols:
+                    for id in self.wdata[time].index:
+                        # current datetime
+                        dt = self.wdata[time].loc[id, "datetime"]
+
+                        # set of relevant date times
+                        relevant_dts = [dt + pd.Timedelta(hours=x) for x in self.duration]
+          
+                        # boolean mask for relevant rows to average in the raw data
+                        ids_avg = [dt in relevant_dts for dt in self.raw_data["datetime"]]
+
+                        assert np.sum(ids_avg) == len(self.duration)
+                        
+                        # compute avg
+                        avg = self.raw_data[ids_avg][col].mean()
+
+                        # overwrite with avg
+                        self.wdata[time].loc[id, col] = avg
                 assert self.raw_data["datetime"].dt.day.nunique() == self.wdata[time].shape[0]
 
             ###
@@ -1115,12 +1147,6 @@ def _(
     return (Weather,)
 
 
-@app.cell
-def _(weather):
-    weather.raw_data
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
@@ -1137,22 +1163,10 @@ def _(mo):
 @app.cell
 def _(Weather):
     weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
-    weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
+    # weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
     # weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
-
-
-@app.cell
-def _(weather):
-    weather.wdata
-    return
-
-
-@app.cell
-def _(weather):
-    weather.wdata["night"].datetime
-    return
 
 
 @app.cell
@@ -1307,6 +1321,12 @@ def _(
         plt.savefig(fig_dir + f"/{mof}_ads_des_{date}_{weather.loc_title}.pdf", format="pdf", bbox_inches="tight")
         plt.show()
     return (viz_water_delivery,)
+
+
+@app.cell
+def _(time_to_color):
+    time_to_color
+    return
 
 
 @app.cell
@@ -1629,7 +1649,7 @@ def _(
         if weather.location == "Tucson":
             plt.ylim(0, 7)
         if weather.location == "Socorro":
-            plt.ylim(0, 20)
+            plt.ylim(0, 25)
         if ymax_override:
             plt.ylim(0, ymax_override)
 
@@ -1738,7 +1758,7 @@ def _(fig_dir, mof_to_color, my_date_format, plt):
         plt.title(weather.loc_title)
         plt.gca().xaxis.set_major_formatter(my_date_format)
         if weather.location == "Socorro":
-            plt.ylim(0, 4.5)
+            plt.ylim(0, 5.0)
         plt.savefig(
             fig_dir + f"/opt_water_delivery_{weather.loc_timespan_title}.pdf", 
             format="pdf", bbox_inches="tight"
