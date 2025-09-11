@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.12.0"
+__generated_with = "0.11.0"
 app = marimo.App(width="medium")
 
 
@@ -18,6 +18,7 @@ def _():
     from scipy.stats import truncnorm
     from dataclasses import dataclass
     from sklearn.isotonic import IsotonicRegression
+    from sklearn.linear_model import LinearRegression
     import seaborn as sns
     import os
     import copy
@@ -37,6 +38,7 @@ def _():
     my_date_format = mdates.DateFormatter(my_date_format_str)
     return (
         IsotonicRegression,
+        LinearRegression,
         copy,
         dataclass,
         interpolate,
@@ -176,8 +178,33 @@ def _(mpl):
 
 
 @app.cell
+def _(IsotonicRegression, LinearRegression, np):
+    # use isotonic regression and linear regression for extrapolation.
+    def train_A_to_n_map(As, ns):
+        assert (np.sort(As) == As).all()
+
+        # isotonic regression for everything but extrapolation to larger A
+        ir = IsotonicRegression(increasing=False, out_of_bounds='clip')
+        ir.fit(As.reshape(len(As), 1), ns)
+        
+        # for extrapolation (large P i.e. small A)
+        lr = LinearRegression()
+        lr.fit(As[:2].reshape(2, 1), ns[:2])
+        A_min = As[0]
+        
+        def A_to_n(A):
+            A_input = np.array([A]).reshape(-1, 1)
+            if A < A_min:
+                return lr.predict(A_input)[0]
+            else:
+                return ir.predict(A_input)[0]
+
+        return A_to_n
+    return (train_A_to_n_map,)
+
+
+@app.cell
 def _(
-    IsotonicRegression,
     R,
     T_to_color,
     axis_labels,
@@ -186,6 +213,7 @@ def _(
     np,
     pd,
     plt,
+    train_A_to_n_map,
 ):
     class MOFWaterAds:
         def __init__(self, mof, data_temperatures):
@@ -260,30 +288,17 @@ def _(
             for temperature in self.data_temperatures:
                 # read in adsorption isotherm data at fit temperature
                 data = self._read_ads_data(temperature)
-                print(f"\tfitting Polany curve to T={temperature}")
-    
+                print(f"\tfitting Polanyi curve to T={temperature}")
+
                 # sort rows by A values
                 data.sort_values(by='A [kJ/mol]', inplace=True, ignore_index=True)
 
-                # non_monotonic_mask = data['Water Uptake [kg kg-1]'] < data['Water Uptake [kg kg-1]'].shift(1)
-                # non_monotonic_mask.iloc[0] = True # otherwise cuts off last data pt...
-                # data = data.loc[non_monotonic_mask, :]
-    
-                # assert data['Water Uptake [kg kg-1]'].is_monotonic_decreasing
-                # assert data["A [kJ/mol]"].is_monotonic_increasing
-
                 As = data['A [kJ/mol]'].values
                 ns = data['Water Uptake [kg kg-1]'].values
-    
+
+                # linear regressor for end
                 # monotonic interpolation of water ads. as a function of Polanyi potential A.
-                self.ads_of_As.append(
-                    # interpolate.PchipInterpolator(
-                    #     data['A [kJ/mol]'].values, data['Water Uptake [kg kg-1]'].values, extrapolate=True
-                    # )
-                    IsotonicRegression(increasing=False, out_of_bounds='clip').fit(
-                        As, ns
-                    ).predict
-                )
+                self.ads_of_As.append(train_A_to_n_map(As, ns))
 
         def predict_water_adsorption(self, temperature, p_over_p0):
             """
@@ -303,9 +318,11 @@ def _(
             if np.isinf(A):
                 return 0.0
 
+            A_input = np.array([A]).reshape(-1, 1)
+
             # compute water adsorption at this A on all char. curves
-            # n_preds = [ads_of_A(A).item() for ads_of_A in self.ads_of_As] # kg/kg
-            n_preds = [ads_of_A(np.array([A]))[0] for ads_of_A in self.ads_of_As] # kg/kg
+            n_preds = [ads_of_A(A) for ads_of_A in self.ads_of_As] # kg/kg
+
             # interpolate
             return np.interp(temperature, self.data_temperatures, n_preds)
 
@@ -393,6 +410,24 @@ def _(
                 plt.savefig(fig_dir + f"/all_ads_isotherms_{self.mof}.pdf", format="pdf", bbox_inches='tight')
             plt.show()
 
+        def viz_predicted_adsorption_isotherms(self, temperatures):
+            plt.figure()
+            plt.xlabel(axis_labels['pressure'])
+            plt.ylabel(axis_labels['adsorption'])
+            
+            p_ovr_p0s = np.linspace(0, 1, 250)
+            for temperature in temperatures:
+                plt.plot(
+                    p_ovr_p0s, [self.predict_water_adsorption(temperature, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
+                    color=T_to_color(temperature), label="{}°C".format(temperature)
+                )
+
+            plt.ylim(ymin=0)
+            plt.xlim(xmin=0)
+            plt.title(self.mof)
+            plt.legend(prop={'size': 14})
+            plt.show()
+
         def plot_characteristic_curves(self, incl_model=True, save=False):
             plt.figure()
             plt.xlabel(axis_labels['potential'])
@@ -415,7 +450,7 @@ def _(
 
                 if incl_model:
                     As = np.linspace(0, A_max)
-                    plt.plot(As, self.ads_of_As[i](As), color=T_to_color(temperature))
+                    plt.plot(As, [self.ads_of_As[i](Ai) for Ai in As], color=T_to_color(temperature))
 
             plt.ylim(ymin=0)
             plt.xlim(xmin=0)
@@ -450,12 +485,6 @@ def _(mof):
         # temperature [°C]
         45
     )
-    return
-
-
-@app.cell
-def _(mof):
-    mof.predict_water_adsorption(45.0, 0.2)
     return
 
 
@@ -531,6 +560,12 @@ def _(mof, mof_to_data_temperatures):
         _p_data = mof.find_transition_p(_T, "data")
         _p_pred = mof.find_transition_p(_T, "predicted")
         print(f"pred vs ")
+    return
+
+
+@app.cell
+def _(mof):
+    mof.viz_predicted_adsorption_isotherms([25 + 5 * i for i in range(10)])
     return
 
 
@@ -729,14 +764,14 @@ def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
                 T = 20
             elif 30 in mof_water_ads[mof].data_temperatures:
                 T = 30
-            
+
             data = mof_water_ads[mof]._read_ads_data(T)
-    
+
             # print max and transition pressure
             print(mof)
             print("\tp* = ", mof_water_ads[mof].find_transition_p(T, "data"))
             print("\tmax: ", data['Water Uptake [kg kg-1]'].max())
-    
+
             plt.plot(
                 data['P/P_0'], data['Water Uptake [kg kg-1]'],
                 color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
@@ -1177,8 +1212,8 @@ def _(mo):
 @app.cell
 def _(Weather):
     weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
-    # weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
-    # weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
+    weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
+    weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
 
@@ -1701,7 +1736,14 @@ def _():
 
 
 @app.cell
-def _(fig_dir, get_active_mofs, mof_to_color, opt_mass_of_mofs, plt, weather):
+def _(
+    fig_dir,
+    get_active_mofs,
+    mof_to_color,
+    opt_mass_of_mofs,
+    plt,
+    weather,
+):
     def viz_optimal_harvester_pie(opt_mass_of_mofs, weather, save_fig=True):
         active_mofs = get_active_mofs(opt_mass_of_mofs)
         ms = [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in active_mofs]
@@ -1854,7 +1896,11 @@ def _(optimize_harvester):
 
 
 @app.cell
-def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
+def _(
+    design_under_perturbed_water_del,
+    get_active_mofs,
+    get_nonactive_mofs,
+):
     def sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1):
         old_opt_mass_of_mofs = opt_mass_of_mofs["mass [kg]"].sum()
         print("old mass = ", old_opt_mass_of_mofs)
@@ -1890,7 +1936,12 @@ def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
 
 
 @app.cell
-def _(daily_water_demand, opt_mass_of_mofs, sensitivity_analysis, water_del):
+def _(
+    daily_water_demand,
+    opt_mass_of_mofs,
+    sensitivity_analysis,
+    water_del,
+):
     sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1)
     return
 
@@ -2194,7 +2245,12 @@ def _(field_daily_water_demand, field_water_del, mass_water_harvester):
 
 
 @app.cell
-def _(field_mof_water_ads, field_water_del, field_weather, viz_water_delivery):
+def _(
+    field_mof_water_ads,
+    field_water_del,
+    field_weather,
+    viz_water_delivery,
+):
     viz_water_delivery(field_water_del, "MOF-801G", 0, field_mof_water_ads, field_weather)
     return
 
