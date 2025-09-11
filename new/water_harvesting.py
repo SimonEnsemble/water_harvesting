@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.0"
+__generated_with = "0.12.0"
 app = marimo.App(width="medium")
 
 
@@ -17,6 +17,7 @@ def _():
     from scipy.optimize import linprog
     from scipy.stats import truncnorm
     from dataclasses import dataclass
+    from sklearn.isotonic import IsotonicRegression
     import seaborn as sns
     import os
     import copy
@@ -35,6 +36,7 @@ def _():
     my_date_format_str = '%b-%d'
     my_date_format = mdates.DateFormatter(my_date_format_str)
     return (
+        IsotonicRegression,
         copy,
         dataclass,
         interpolate,
@@ -128,28 +130,11 @@ def _(random, sns):
         "MIP-200": [30]
     }
 
-    mof_to_fit_temperatures = {
-        "MOF-801": 25,
-        "KMF-1": 25,
-        "CAU-23": 25,
-        "MIL-160": 20,
-        "MOF-303": 25,
-        "CAU-10-H": 25,
-        "Al-Fum": 25,
-        "MIP-200": 30
-    }
-
     mof_to_color = dict(zip(mofs, sns.color_palette("husl", len(mofs))))
     mof_to_color["MOF-801G"] = "black"
 
     mof_to_marker = dict(zip(mofs, ['o', 's', 'd', 'X', '>', '<', 'P', 'D'])) # h next
-    return (
-        mof_to_color,
-        mof_to_data_temperatures,
-        mof_to_fit_temperatures,
-        mof_to_marker,
-        mofs,
-    )
+    return mof_to_color, mof_to_data_temperatures, mof_to_marker, mofs
 
 
 @app.cell
@@ -192,31 +177,28 @@ def _(mpl):
 
 @app.cell
 def _(
+    IsotonicRegression,
     R,
     T_to_color,
     axis_labels,
     fig_dir,
-    interpolate,
     kneefinder,
     np,
     pd,
     plt,
 ):
     class MOFWaterAds:
-        def __init__(self, mof, fit_temperature, data_temperatures):
+        def __init__(self, mof, data_temperatures):
             """
             mof (string): name of MOF. e.g. "MOF-801"
             data_temperatures: list of data temperatures in degrees C.
             """
-            if not fit_temperature in data_temperatures:
-                raise Exception("fit temp not in data temps!")
-
+            print(f"CONSTRUCTING {mof}")
             self.mof = mof
-            self.fit_temperature = fit_temperature
-            self.data_temperatures = data_temperatures
+            self.data_temperatures = np.sort(data_temperatures)
 
             # fit char. curve
-            self.fit_characteristic_curve()
+            self.fit_characteristic_curves()
 
         def _read_ads_data(self, temperature):
             """
@@ -273,20 +255,35 @@ def _(
 
             return p_star
 
-        def fit_characteristic_curve(self):
-            # read in adsorption isotherm data at fit temperature
-            data = self._read_ads_data(self.fit_temperature)
+        def fit_characteristic_curves(self):
+            self.ads_of_As = []
+            for temperature in self.data_temperatures:
+                # read in adsorption isotherm data at fit temperature
+                data = self._read_ads_data(temperature)
+                print(f"\tfitting Polany curve to T={temperature}")
+    
+                # sort rows by A values
+                data.sort_values(by='A [kJ/mol]', inplace=True, ignore_index=True)
 
-            # sort rows by A values
-            data.sort_values(by='A [kJ/mol]', inplace=True, ignore_index=True)
+                # non_monotonic_mask = data['Water Uptake [kg kg-1]'] < data['Water Uptake [kg kg-1]'].shift(1)
+                # non_monotonic_mask.iloc[0] = True # otherwise cuts off last data pt...
+                # data = data.loc[non_monotonic_mask, :]
+    
+                # assert data['Water Uptake [kg kg-1]'].is_monotonic_decreasing
+                # assert data["A [kJ/mol]"].is_monotonic_increasing
 
-            assert data['Water Uptake [kg kg-1]'].is_monotonic_decreasing
-            assert data["A [kJ/mol]"].is_monotonic_increasing
-
-            # monotonic interpolation of water ads. as a function of Polanyi potential A.
-            self.ads_of_A = interpolate.PchipInterpolator(
-                data['A [kJ/mol]'].values, data['Water Uptake [kg kg-1]'].values
-            )
+                As = data['A [kJ/mol]'].values
+                ns = data['Water Uptake [kg kg-1]'].values
+    
+                # monotonic interpolation of water ads. as a function of Polanyi potential A.
+                self.ads_of_As.append(
+                    # interpolate.PchipInterpolator(
+                    #     data['A [kJ/mol]'].values, data['Water Uptake [kg kg-1]'].values, extrapolate=True
+                    # )
+                    IsotonicRegression(increasing=False, out_of_bounds='clip').fit(
+                        As, ns
+                    ).predict
+                )
 
         def predict_water_adsorption(self, temperature, p_over_p0):
             """
@@ -303,8 +300,14 @@ def _(
             # Calculate the Polanyi potential [kJ/mol]
             A = -R * (temperature + 273.15) * np.log(p_over_p0)
 
-            # compute water adsorption at this A on the char. curve
-            return self.ads_of_A(A).item() # kg/kg
+            if np.isinf(A):
+                return 0.0
+
+            # compute water adsorption at this A on all char. curves
+            # n_preds = [ads_of_A(A).item() for ads_of_A in self.ads_of_As] # kg/kg
+            n_preds = [ads_of_A(np.array([A]))[0] for ads_of_A in self.ads_of_As] # kg/kg
+            # interpolate
+            return np.interp(temperature, self.data_temperatures, n_preds)
 
         def rmae_prediction(self, temperature):
             """
@@ -364,9 +367,8 @@ def _(
                 # read ads isotherm data
                 data = self._read_ads_data(temperature)
 
-                 
                 if incl_predictions:
-                    p_ovr_p0s = np.linspace(0, 1, 100)[1:]
+                    p_ovr_p0s = np.linspace(0, 1, 250)
                     plt.plot(
                         p_ovr_p0s, [self.predict_water_adsorption(temperature, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
                         color=T_to_color(temperature)
@@ -397,7 +399,7 @@ def _(
             plt.ylabel(axis_labels['adsorption'])
 
             A_max = -1.0 # for determining axis limits
-            for temperature in self.data_temperatures:
+            for i, temperature in enumerate(self.data_temperatures):
                 # read ads isotherm data
                 data = self._read_ads_data(temperature)
 
@@ -411,9 +413,9 @@ def _(
                 if data['A [kJ/mol]'].max() > A_max:
                     A_max = data['A [kJ/mol]'].max()
 
-            if incl_model:
-                As = np.linspace(0, A_max)
-                plt.plot(As, self.ads_of_A(As), color=T_to_color(self.fit_temperature))
+                if incl_model:
+                    As = np.linspace(0, A_max)
+                    plt.plot(As, self.ads_of_As[i](As), color=T_to_color(temperature))
 
             plt.ylim(ymin=0)
             plt.xlim(xmin=0)
@@ -432,12 +434,10 @@ def _(mo):
 
 
 @app.cell
-def _(MOFWaterAds, mof_to_data_temperatures, mof_to_fit_temperatures):
+def _(MOFWaterAds, mof_to_data_temperatures):
     mof = MOFWaterAds(
         # name of MOF crystal structure
         "MOF-801", 
-        # temperature [°C]
-        mof_to_fit_temperatures["MOF-801"], 
         # list of temperatures for which we have data [°C]
         mof_to_data_temperatures["MOF-801"]
     )
@@ -450,6 +450,12 @@ def _(mof):
         # temperature [°C]
         45
     )
+    return
+
+
+@app.cell
+def _(mof):
+    mof.predict_water_adsorption(45.0, 0.2)
     return
 
 
@@ -535,13 +541,8 @@ def _(mo):
 
 
 @app.cell
-def _(
-    MOFWaterAds,
-    mof_to_data_temperatures,
-    mof_to_fit_temperatures,
-    mofs,
-):
-    mof_water_ads = {mof: MOFWaterAds(mof, mof_to_fit_temperatures[mof], mof_to_data_temperatures[mof]) for mof in mofs}
+def _(MOFWaterAds, mof_to_data_temperatures, mofs):
+    mof_water_ads = {mof: MOFWaterAds(mof, mof_to_data_temperatures[mof]) for mof in mofs}
     return (mof_water_ads,)
 
 
@@ -642,12 +643,6 @@ def _(mof_water_ads):
     return
 
 
-@app.cell
-def _(mof_water_ads):
-    mof_water_ads["MIP-200"].fit_temperature
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
@@ -667,7 +662,7 @@ def _(axis_labels, fig_dir, mof_to_color, mof_water_ads, np, plt):
         plt.xlabel(axis_labels["pressure"])
         plt.ylabel(axis_labels["adsorption"])
 
-        p_ovr_p0s = np.linspace(0, 1, 100)[1:]
+        p_ovr_p0s = np.linspace(0, 1, 250)
         for mof in mof_water_ads.keys():
             plt.plot(
                 p_ovr_p0s, [mof_water_ads[mof].predict_water_adsorption(temperature, p_ovr_p0) for p_ovr_p0 in p_ovr_p0s], 
@@ -714,6 +709,12 @@ def _(fig_dir, mof_to_color, mof_to_marker, mof_water_ads, mofs, plt):
 
 
 @app.cell
+def _(mof):
+    mof.data_temperatures
+    return
+
+
+@app.cell
 def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
     def viz_all_measured_adsorption_isotherms(mof_water_ads):
         fig = plt.Figure(figsize=(6.4*0.8, 4.8*.8))
@@ -721,14 +722,21 @@ def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
         plt.ylabel(axis_labels["adsorption"])
 
         for mof in mof_water_ads.keys():
-            T = mof_water_ads[mof].fit_temperature
+            # choose a temperature
+            if 25 in mof_water_ads[mof].data_temperatures:
+                T = 25
+            elif 20 in mof_water_ads[mof].data_temperatures:
+                T = 20
+            elif 30 in mof_water_ads[mof].data_temperatures:
+                T = 30
+            
             data = mof_water_ads[mof]._read_ads_data(T)
-
+    
             # print max and transition pressure
             print(mof)
             print("\tp* = ", mof_water_ads[mof].find_transition_p(T, "data"))
             print("\tmax: ", data['Water Uptake [kg kg-1]'].max())
-
+    
             plt.plot(
                 data['P/P_0'], data['Water Uptake [kg kg-1]'],
                 color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
@@ -742,6 +750,12 @@ def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
         plt.savefig(fig_dir + "/MOF_water_adsorption.pdf", format="pdf", bbox_inches='tight')
         plt.show()
     return (viz_all_measured_adsorption_isotherms,)
+
+
+@app.cell
+def _(mof_water_ads):
+    mof_water_ads["MIL-160"].data_temperatures
+    return
 
 
 @app.cell
@@ -1019,7 +1033,7 @@ def _(
                     end   = now + pd.Timedelta(hours=self.duration.max())
                     for ax in axs:
                         ax.axvspan(start, end, color=time_to_color[time], alpha=0.2)
-                    
+
             # already got legend above
             if save:
                 plt.savefig(fig_dir + f"/weather_{self.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
@@ -1085,12 +1099,12 @@ def _(
 
                         # set of relevant date times
                         relevant_dts = [dt + pd.Timedelta(hours=x) for x in self.duration]
-          
+
                         # boolean mask for relevant rows to average in the raw data
                         ids_avg = [dt in relevant_dts for dt in self.raw_data["datetime"]]
 
                         assert np.sum(ids_avg) == len(self.duration)
-                        
+
                         # compute avg
                         avg = self.raw_data[ids_avg][col].mean()
 
@@ -1687,14 +1701,7 @@ def _():
 
 
 @app.cell
-def _(
-    fig_dir,
-    get_active_mofs,
-    mof_to_color,
-    opt_mass_of_mofs,
-    plt,
-    weather,
-):
+def _(fig_dir, get_active_mofs, mof_to_color, opt_mass_of_mofs, plt, weather):
     def viz_optimal_harvester_pie(opt_mass_of_mofs, weather, save_fig=True):
         active_mofs = get_active_mofs(opt_mass_of_mofs)
         ms = [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in active_mofs]
@@ -1847,11 +1854,7 @@ def _(optimize_harvester):
 
 
 @app.cell
-def _(
-    design_under_perturbed_water_del,
-    get_active_mofs,
-    get_nonactive_mofs,
-):
+def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
     def sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1):
         old_opt_mass_of_mofs = opt_mass_of_mofs["mass [kg]"].sum()
         print("old mass = ", old_opt_mass_of_mofs)
@@ -1887,12 +1890,7 @@ def _(
 
 
 @app.cell
-def _(
-    daily_water_demand,
-    opt_mass_of_mofs,
-    sensitivity_analysis,
-    water_del,
-):
+def _(daily_water_demand, opt_mass_of_mofs, sensitivity_analysis, water_del):
     sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1)
     return
 
@@ -2144,7 +2142,7 @@ def _(mo):
 
 @app.cell
 def _(MOFWaterAds):
-    field_mof_water_ads = {"MOF-801G": MOFWaterAds("MOF-801G", 25, [25])}
+    field_mof_water_ads = {"MOF-801G": MOFWaterAds("MOF-801G", [25])}
     return (field_mof_water_ads,)
 
 
@@ -2196,12 +2194,7 @@ def _(field_daily_water_demand, field_water_del, mass_water_harvester):
 
 
 @app.cell
-def _(
-    field_mof_water_ads,
-    field_water_del,
-    field_weather,
-    viz_water_delivery,
-):
+def _(field_mof_water_ads, field_water_del, field_weather, viz_water_delivery):
     viz_water_delivery(field_water_del, "MOF-801G", 0, field_mof_water_ads, field_weather)
     return
 
