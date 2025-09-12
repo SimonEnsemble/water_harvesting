@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.0"
+__generated_with = "0.14.10"
 app = marimo.App(width="medium")
 
 
@@ -14,7 +14,7 @@ def _():
     import numpy as np
     import random
     from scipy import interpolate
-    from scipy.optimize import linprog
+    from scipy.optimize import linprog, differential_evolution
     from scipy.stats import truncnorm
     from dataclasses import dataclass
     from sklearn.isotonic import IsotonicRegression
@@ -40,12 +40,9 @@ def _():
         IsotonicRegression,
         LinearRegression,
         copy,
-        dataclass,
-        interpolate,
+        differential_evolution,
         kneefinder,
         linprog,
-        load_theme,
-        mdates,
         mo,
         mpl,
         my_date_format,
@@ -56,7 +53,6 @@ def _():
         plt,
         random,
         sns,
-        theme,
         truncnorm,
         warnings,
     )
@@ -84,31 +80,31 @@ def _(os):
 def _(mo):
     mo.md(
         r"""
-        # 💧 modeling water adsorption in the MOFs
+    # 💧 modeling water adsorption in the MOFs
 
-        ::icon-park:data:: experimental water adsorption data in MOFs; raw data stored in `data/`.
+    ::icon-park:data:: experimental water adsorption data in MOFs; raw data stored in `data/`.
 
-        | MOF | original reference | data extrd_or_n method | confirmed data fidelity | notes | Ashlee's list |
-        | -- | -- | -- | -- | -- | -- |
-        | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6a | ✅ | | ✅ |
-        | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2B | ✅ |  |✅ |
-        | CAU-23 | [link](https://www.nature.com/articles/s41467-019-10960-0)| plot digitized from Fig 2 | ✅ | | ✅ |
-        | MIL-160 | [link](https://onlinelibrary.wiley.com/doi/10.1002/adma.201502418) | plot digitized from SI Fig. 4 |✅ | |✅ |
-        | Y-shp-MOF-5 | [link](https://pubs.acs.org/doi/10.1021/jacs.7b04132) | plot digitized from Fig. 2 | ❌ | too severe hysteresis | ✅ |
-        | MOF-303 | [link](https://www.science.org/doi/10.1126/science.abj0890) | plot digitized from Fig. 1 A |✅ | | ✅ |
-        | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 | ✅ | caution: moderate hysteresis | ✅ |
-        | Al-Fum | [link](https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d) | plot digitized from Fig. 3 | ✅ | |✅ |
-        | MIP-200 | [link](https://www.nature.com/articles/s41560-018-0261-6) | plot digitized from Fig. 2 | ✅ ||✅ |
-        | MOF-801-G | [link](https://www.science.org/doi/10.1126/sciadv.aat3198) | plot digitized from Fig. 2 | 
+    | MOF | original reference | data extrd_or_n method | confirmed data fidelity | notes | Ashlee's list |
+    | -- | -- | -- | -- | -- | -- |
+    | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6a | ✅ | | ✅ |
+    | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2B | ✅ |  |✅ |
+    | CAU-23 | [link](https://www.nature.com/articles/s41467-019-10960-0)| plot digitized from Fig 2 | ✅ | | ✅ |
+    | MIL-160 | [link](https://onlinelibrary.wiley.com/doi/10.1002/adma.201502418) | plot digitized from SI Fig. 4 |✅ | |✅ |
+    | Y-shp-MOF-5 | [link](https://pubs.acs.org/doi/10.1021/jacs.7b04132) | plot digitized from Fig. 2 | ❌ | too severe hysteresis | ✅ |
+    | MOF-303 | [link](https://www.science.org/doi/10.1126/science.abj0890) | plot digitized from Fig. 1 A |✅ | | ✅ |
+    | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 | ✅ | caution: moderate hysteresis | ✅ |
+    | Al-Fum | [link](https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d) | plot digitized from Fig. 3 | ✅ | |✅ |
+    | MIP-200 | [link](https://www.nature.com/articles/s41560-018-0261-6) | plot digitized from Fig. 2 | ✅ ||✅ |
+    | MOF-801-G | [link](https://www.science.org/doi/10.1126/sciadv.aat3198) | plot digitized from Fig. 2 | 
 
-        we extracted all water adsorption data from plots in the papers using [plot digitizer](https://www.graphreader.com/v2). we took only the _adsorption_ branch, neglecting hysteresis.
+    we extracted all water adsorption data from plots in the papers using [plot digitizer](https://www.graphreader.com/v2). we took only the _adsorption_ branch, neglecting hysteresis.
 
-        below, our class `MOFWaterAds` aims to:
+    below, our class `MOFWaterAds` aims to:
 
-        * read in the raw adsorption data
-        * visualize the raw adsorption data
-        * employ Polanyi potential theory to predict adsorption in MOFs at any temperature and pressure.
-        """
+    * read in the raw adsorption data
+    * visualize the raw adsorption data
+    * employ Polanyi potential theory to predict adsorption in MOFs at any temperature and pressure.
+    """
     )
     return
 
@@ -174,7 +170,7 @@ def _(mpl):
         return temperature_cmap(temperature_cmap_norm(temperature))
 
     temperature_cmap
-    return T_to_color, axis_labels, temperature_cmap, temperature_cmap_norm
+    return T_to_color, axis_labels
 
 
 @app.cell
@@ -186,12 +182,12 @@ def _(IsotonicRegression, LinearRegression, np):
         # isotonic regression for everything but extrapolation to larger A
         ir = IsotonicRegression(increasing=False, out_of_bounds='clip')
         ir.fit(As.reshape(len(As), 1), ns)
-        
+
         # for extrapolation (large P i.e. small A)
         lr = LinearRegression()
         lr.fit(As[:2].reshape(2, 1), ns[:2])
         A_min = As[0]
-        
+
         def A_to_n(A):
             A_input = np.array([A]).reshape(-1, 1)
             if A < A_min:
@@ -414,7 +410,7 @@ def _(
             plt.figure()
             plt.xlabel(axis_labels['pressure'])
             plt.ylabel(axis_labels['adsorption'])
-            
+
             p_ovr_p0s = np.linspace(0, 1, 250)
             for temperature in temperatures:
                 plt.plot(
@@ -682,10 +678,10 @@ def _(mof_water_ads):
 def _(mo):
     mo.md(
         r"""
-        ## 🪟 viz all room-temperature isotherms on one plot
+    ## 🪟 viz all room-temperature isotherms on one plot
 
-        (not all data are at 25 degrees C, so we just plot predictions.)
-        """
+    (not all data are at 25 degrees C, so we just plot predictions.)
+    """
     )
     return
 
@@ -709,7 +705,7 @@ def _(axis_labels, fig_dir, mof_to_color, mof_water_ads, np, plt):
         plt.show()
 
     viz_all_predicted_adsorption_isotherms(25, mof_water_ads)
-    return (viz_all_predicted_adsorption_isotherms,)
+    return
 
 
 @app.cell(hide_code=True)
@@ -740,7 +736,7 @@ def _(fig_dir, mof_to_color, mof_to_marker, mof_water_ads, mofs, plt):
         plt.show()
 
     viz_step_locations(mof_water_ads, 25)
-    return (viz_step_locations,)
+    return
 
 
 @app.cell
@@ -803,10 +799,10 @@ def _(mof_water_ads, viz_all_measured_adsorption_isotherms):
 def _(mo):
     mo.md(
         r"""
-        # 💧 water vapor pressure
+    # 💧 water vapor pressure
 
-        Antoine Equation Parameters from NIST [here](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Mask=4), valid 293 K to 343 K i.e. 20 deg C to 70 deg C, from Gubkov, Fermor, et al., 1964.
-        """
+    Antoine Equation Parameters from NIST [here](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Mask=4), valid 293 K to 343 K i.e. 20 deg C to 70 deg C, from Gubkov, Fermor, et al., 1964.
+    """
     )
     return
 
@@ -856,23 +852,23 @@ def _(fig_dir, np, plt, water_vapor_presssure):
         plt.show()
 
     viz_water_vapor_presssure()
-    return (viz_water_vapor_presssure,)
+    return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-        **the desorption process**. 
+    **the desorption process**. 
 
-        1. we take air at daytime temperature $T_d$ and relative humidity $h_d\in[0, 1]$.
-        the associated daytime partial pressure of water is $p_d = h_d p^* (T_d)$, where the vapor pressure of water at this daytime temperature $p^* (T_d)$ is from Antoine's equation. this air is at 1 atm.
-        2. we heat up this daytime air using the sun, to a temperature $T_s>T_d$. this is a constant-pressure process. so, the percent water in the air remains the same. the fraction water is just the partial pressure divided by total pressure (ideal gas law). since the total pressure is constant, the partial pressure of water remains the same, then, at $p_d$. i.e. $p_s=p_d$. however, the hotter air can hold more water, since the saturation pressure of water vapor increases with tempearture. so we calculate the water vapor saturation pressure $p^*(T_s)$ at this new temperature and compute $h_s=p_d/p^*(T_s)$ as the relative humidity at these hotter conditions.
+    1. we take air at daytime temperature $T_d$ and relative humidity $h_d\in[0, 1]$.
+    the associated daytime partial pressure of water is $p_d = h_d p^* (T_d)$, where the vapor pressure of water at this daytime temperature $p^* (T_d)$ is from Antoine's equation. this air is at 1 atm.
+    2. we heat up this daytime air using the sun, to a temperature $T_s>T_d$. this is a constant-pressure process. so, the percent water in the air remains the same. the fraction water is just the partial pressure divided by total pressure (ideal gas law). since the total pressure is constant, the partial pressure of water remains the same, then, at $p_d$. i.e. $p_s=p_d$. however, the hotter air can hold more water, since the saturation pressure of water vapor increases with tempearture. so we calculate the water vapor saturation pressure $p^*(T_s)$ at this new temperature and compute $h_s=p_d/p^*(T_s)$ as the relative humidity at these hotter conditions.
 
-        putting it all together, the new relative humidity is: 
+    putting it all together, the new relative humidity is: 
 
-        $h_s=p_d/p^*(T_s)=h_d p^* (T_d)/p^*(T_s)$
-        """
+    $h_s=p_d/p^*(T_s)=h_d p^* (T_d)/p^*(T_s)$
+    """
     )
     return
 
@@ -881,12 +877,12 @@ def _(mo):
 def _(mo):
     mo.md(
         r"""
-        # ⛅ weather data
+    # ⛅ weather data
 
-        📍 Tuscon, Arizona. in 2024.
+    📍 Tuscon, Arizona. in 2024.
 
-        ::rivet-icons:data::  [NOAA](https://www.ncei.noaa.gov/access/crn/qcdatasets.html) `Hourly02` data set.
-        """
+    ::rivet-icons:data::  [NOAA](https://www.ncei.noaa.gov/access/crn/qcdatasets.html) `Hourly02` data set.
+    """
     )
     return
 
@@ -910,7 +906,7 @@ def _(os):
     wdata_dir = "data/NOAA_weather_data"
     wfiles = os.listdir(wdata_dir)
     list(filter(lambda wfile: "CRNH" in wfile, wfiles))
-    return wdata_dir, wfiles
+    return
 
 
 @app.cell
@@ -1200,11 +1196,11 @@ def _(
 def _(mo):
     mo.md(
         r"""
-        📍 options: 
+    📍 options: 
 
-        * Tucson, AZ
-        * Socorro, NM
-        """
+    * Tucson, AZ
+    * Socorro, NM
+    """
     )
     return
 
@@ -1292,13 +1288,11 @@ def _(warnings):
     return (predict_water_delivery,)
 
 
-@app.cell
-def _():
-    def trim_water_delivery_data(water_del, mof):
-        cols = ["date", "ads T [°C]", "ads P/P0", "des T [°C]", "des P/P0"] + \
-            [col for col in water_del.columns if mof in col]
-        return water_del[cols]
-    return (trim_water_delivery_data,)
+@app.function
+def trim_water_delivery_data(water_del, mof):
+    cols = ["date", "ads T [°C]", "ads P/P0", "des T [°C]", "des P/P0"] + \
+        [col for col in water_del.columns if mof in col]
+    return water_del[cols]
 
 
 @app.cell
@@ -1309,13 +1303,13 @@ def _(mof_water_ads, predict_water_delivery, weather):
 
 
 @app.cell
-def _(trim_water_delivery_data, water_del):
+def _(water_del):
     trim_water_delivery_data(water_del, "KMF-1")
     return
 
 
 @app.cell
-def _(mofs, trim_water_delivery_data, water_del):
+def _(mofs, water_del):
     # print average daily water delivery
     for _mof in mofs:
         _wd = trim_water_delivery_data(water_del, _mof)
@@ -1333,7 +1327,6 @@ def _(
     np,
     plt,
     time_to_color,
-    trim_water_delivery_data,
 ):
     def viz_water_delivery(water_del, mof, day_id, mof_water_ads, weather):
         water_del_MOF = trim_water_delivery_data(water_del, mof)
@@ -1486,10 +1479,10 @@ def _(viz_water_delivery_time_series, water_del, weather):
 def _(mo):
     mo.md(
         r"""
-        # ::tabler:baseline-density-large:: baseline: pure-MOF water harvester
+    # ::tabler:baseline-density-large:: baseline: pure-MOF water harvester
 
-        how much MOF do we need for a water harvester based on a pure-MOF water harvester?
-        """
+    how much MOF do we need for a water harvester based on a pure-MOF water harvester?
+    """
     )
     return
 
@@ -1537,17 +1530,17 @@ def _(fig_dir, mof_to_color, mofs, plt, pure_mof_harvester, weather):
         plt.show()
 
     viz_pure_mof_harvester(pure_mof_harvester, mofs, weather)
-    return (viz_pure_mof_harvester,)
+    return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-        # ::twemoji:control-knobs:: optimizing the water harvester
+    # ::twemoji:control-knobs:: optimizing the water harvester
 
-        💡 minimize the mass of the water harvester by tuning the mass of each MOF used, subject to drinking water constraints on each day.
-        """
+    💡 minimize the mass of the water harvester by tuning the mass of each MOF used, subject to drinking water constraints on each day.
+    """
     )
     return
 
@@ -1621,7 +1614,7 @@ def _(linprog, np, pd, warnings):
 def _(mofs, optimize_harvester, water_del):
     daily_water_demand = 2.0 # kg
     opt_mass_of_mofs, min_mass, opt_info = optimize_harvester(mofs, water_del, daily_water_demand)
-    return daily_water_demand, min_mass, opt_info, opt_mass_of_mofs
+    return daily_water_demand, opt_info, opt_mass_of_mofs
 
 
 @app.cell
@@ -1736,14 +1729,7 @@ def _():
 
 
 @app.cell
-def _(
-    fig_dir,
-    get_active_mofs,
-    mof_to_color,
-    opt_mass_of_mofs,
-    plt,
-    weather,
-):
+def _(fig_dir, get_active_mofs, mof_to_color, opt_mass_of_mofs, plt, weather):
     def viz_optimal_harvester_pie(opt_mass_of_mofs, weather, save_fig=True):
         active_mofs = get_active_mofs(opt_mass_of_mofs)
         ms = [opt_mass_of_mofs.loc[mof, "mass [kg]"] for mof in active_mofs]
@@ -1764,7 +1750,7 @@ def _(
         plt.show()
 
     viz_optimal_harvester_pie(opt_mass_of_mofs, weather)
-    return (viz_optimal_harvester_pie,)
+    return
 
 
 @app.cell(hide_code=True)
@@ -1865,17 +1851,17 @@ def _(fig_dir, my_date_format, opt_info, plt, weather):
         plt.show()
 
     viz_marginals(opt_info, weather)
-    return (viz_marginals,)
+    return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-        ### sensitivity analysis
+    ### sensitivity analysis
 
-        what happens if we perturb the predicted water delivery?
-        """
+    what happens if we perturb the predicted water delivery?
+    """
     )
     return
 
@@ -1896,11 +1882,7 @@ def _(optimize_harvester):
 
 
 @app.cell
-def _(
-    design_under_perturbed_water_del,
-    get_active_mofs,
-    get_nonactive_mofs,
-):
+def _(design_under_perturbed_water_del, get_active_mofs, get_nonactive_mofs):
     def sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1):
         old_opt_mass_of_mofs = opt_mass_of_mofs["mass [kg]"].sum()
         print("old mass = ", old_opt_mass_of_mofs)
@@ -1936,12 +1918,7 @@ def _(
 
 
 @app.cell
-def _(
-    daily_water_demand,
-    opt_mass_of_mofs,
-    sensitivity_analysis,
-    water_del,
-):
+def _(daily_water_demand, opt_mass_of_mofs, sensitivity_analysis, water_del):
     sensitivity_analysis(opt_mass_of_mofs, water_del, daily_water_demand, x=0.1)
     return
 
@@ -2012,22 +1989,17 @@ def _(
 
         for _d in range(n_weather_designs):
             viz_optimal_harvester(mofs, perturbed_weather_designs[_d], None, weather, save_tag=f"modified_weather_{_d}")
-    return (
-        design_under_perturbed_weather,
-        n_weather_designs,
-        perturbed_weather_designs,
-        sigma,
-    )
+    return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-        ## 2D toy example for visualizing the constraints
+    ## 2D toy example for visualizing the constraints
 
-        suppose there are two candidate MOFs to be carried over three days.
-        """
+    suppose there are two candidate MOFs to be carried over three days.
+    """
     )
     return
 
@@ -2123,7 +2095,7 @@ def _(
 
     _water_del.loc[_opt_info["active constraints"]]
     _pure_mof_harvester
-    return d, d_0, d_1, ids_feasible, m0s, m1s, m1s_feasible, max_mass
+    return
 
 
 @app.cell
@@ -2136,14 +2108,14 @@ def _(sns):
 def _(mo):
     mo.md(
         r"""
-        # comparison with MOF-801 harvester in the field
+    # comparison with MOF-801 harvester in the field
 
-        on 22 October 2017 in Scottsdale, AZ, USA. 
+    on 22 October 2017 in Scottsdale, AZ, USA. 
 
-        [publication link](https://www.science.org/doi/10.1126/sciadv.aat3198).
+    [publication link](https://www.science.org/doi/10.1126/sciadv.aat3198).
 
-        > Using 0.825 kg of MOF-801/G, 55 g of water was collected
-        """
+    > Using 0.825 kg of MOF-801/G, 55 g of water was collected
+    """
     )
     return
 
@@ -2178,15 +2150,15 @@ def _(field_weather):
 def _(mo):
     mo.md(
         """
-        eyeballing Fig. 3B in the paper and it says:
+    eyeballing Fig. 3B in the paper and it says:
 
-        > 5% RH at 35° to 40°C during the day
-        > 40% RH at 10° to 15°C during the night
+    > 5% RH at 35° to 40°C during the day
+    > 40% RH at 10° to 15°C during the night
 
-        reasonably matches below except Tucson during the day appears a bit cooler.
+    reasonably matches below except Tucson during the day appears a bit cooler.
 
-        they are able to heat the MOF to almost 90 degrees!
-        """
+    they are able to heat the MOF to almost 90 degrees!
+    """
     )
     return
 
@@ -2245,12 +2217,7 @@ def _(field_daily_water_demand, field_water_del, mass_water_harvester):
 
 
 @app.cell
-def _(
-    field_mof_water_ads,
-    field_water_del,
-    field_weather,
-    viz_water_delivery,
-):
+def _(field_mof_water_ads, field_water_del, field_weather, viz_water_delivery):
     viz_water_delivery(field_water_del, "MOF-801G", 0, field_mof_water_ads, field_weather)
     return
 
@@ -2278,6 +2245,207 @@ def _(
 @app.cell
 def _(field_mass, field_opt_mass_mofs):
     field_mass / field_opt_mass_mofs[0].values
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""# 🪡 parametric Polanyi fitting""")
+    return
+
+
+@app.cell
+def _(mof_water_ads):
+    def all_data(mof):
+        T_list = []
+        P_list = []
+        n_list = []
+        A_list = []
+        for temperature in mof_water_ads[mof].data_temperatures:
+            # read ads isotherm data
+            data = mof_water_ads[mof]._read_ads_data(temperature) 
+            P0 = saturation_pressure_bar(temperature)   
+            T_list += [temperature + 273.15] * data.shape[0]          
+            P_list += list(data['P/P_0'] * P0)
+            n_list += list(data['Water Uptake [kg kg-1]'])
+            A_list += list(data['A [kJ/mol]'])
+        return T_list, P_list, n_list, A_list
+
+    T_list, P_list, n_list, A_list = all_data("MOF-801")
+    return A_list, P_list, T_list, n_list
+
+
+@app.cell
+def _(np):
+    def polanyi_model(params, A):
+        m, E, b = params
+        return m * np.exp(- (A / E)**b)
+    return (polanyi_model,)
+
+
+@app.cell
+def _(A_list, n_list, np, polanyi_model):
+    def Polanyi_objective(_params):
+        params = _params.copy()
+        n_pred = np.array([polanyi_model(params, A) for A in A_list])
+        return np.sum((n_list - n_pred)**2)
+    return (Polanyi_objective,)
+
+
+@app.cell
+def _(Polanyi_objective, differential_evolution):
+    def fit_polanyi(objective, seed=100):
+        bounds = [
+            (0, 1),     # m [kg/kg]
+            (0.1, 80),  # E (kJ/mol)
+            (0.1, 8)    # b
+        ]     
+        result = differential_evolution(objective, bounds, maxiter=10000, tol=1e-4, atol=1e-6, seed=seed)
+        return result.x, result.fun
+    polanyi_params, polanyi_rss = fit_polanyi(Polanyi_objective)
+    return polanyi_params, polanyi_rss
+
+
+@app.cell
+def _(T_to_color, axis_labels, mof_water_ads, np, plt, polanyi_model):
+    def plot_characteristic_curves(mof, params, RSS):
+        plt.figure()
+        plt.xlabel(axis_labels['potential'])
+        plt.ylabel(axis_labels['adsorption'])
+
+        m, E, b = params
+        A_max = -1.0 # for determining axis limits
+        for temperature in mof_water_ads[mof].data_temperatures:
+            # read ads isotherm data
+            data = mof_water_ads[mof]._read_ads_data(temperature)
+
+            # draw data
+            plt.scatter(
+                data['A [kJ/mol]'], data['Water Uptake [kg kg-1]'], 
+                clip_on=False, color=T_to_color(temperature), label="{}°C".format(temperature)
+            )
+
+            # track A_max
+            if data['A [kJ/mol]'].max() > A_max:
+                A_max = data['A [kJ/mol]'].max()
+    
+        As = np.linspace(0, A_max)
+        plt.plot(
+                As, [polanyi_model(params, A) for A in As], 
+                color="purple", label="polanyi"
+        )
+    
+        print("fit params:", params)
+        print("RSS:", RSS)
+        plt.ylim(ymin=0)
+        plt.xlim(xmin=0)
+        plt.title(mof)
+        plt.legend(prop={'size': 14})
+        plt.show()
+    return (plot_characteristic_curves,)
+
+
+@app.cell
+def _(plot_characteristic_curves, polanyi_params, polanyi_rss):
+    plot_characteristic_curves("MOF-801", polanyi_params, polanyi_rss)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""# ❌ dual site Langmuir model""")
+    return
+
+
+@app.cell
+def _(np):
+    def dsfl(params, temperature_pressure):     
+        temperature, pressure = temperature_pressure
+        m1, k1, a1, v1, m2, k2, a2, v2 = params
+        term1 = (m1 * k1 * np.exp(a1 / temperature) * pressure ** v1) / (
+            1 + k1 * np.exp(a1 / temperature) * pressure ** v1)
+        term2 = (m2 * k2 * np.exp(a2 / temperature) * pressure ** v2) / (
+            1 + k2 * np.exp(a2 / temperature) * pressure ** v2)
+        return term1 + term2
+    return (dsfl,)
+
+
+@app.function
+def saturation_pressure_bar(temperature):
+    # Antoine function
+    A, B, C = 8.07131, 1730.63, 233.426
+    P_Hg = 10**(A - B/(C + temperature))
+    return P_Hg * 133.322 / 1e5
+
+
+@app.cell
+def _(P_list, T_list, dsfl, n_list, np):
+    def dsfl_objective(_params):
+        params = _params.copy()
+        n_pred = np.array([dsfl(params, (temperature, pressure)) 
+                           for temperature, pressure in zip(T_list, P_list)])
+        return np.sum((n_list - n_pred)**2)
+    return (dsfl_objective,)
+
+
+@app.cell
+def _(differential_evolution, dsfl_objective):
+    def fit_dsfl(objective, seed=100):
+        bounds = [
+            (0,   1),     # m1
+            (0, 0.1),     # k1
+            (0, 8e4),     # a1  
+            (0,   2),     # v1 
+            (0,   1),     # m2
+            (0, 0.1),     # k2
+            (0, 8e4),     # a2
+            (0,   5)      # v2
+        ]
+        result = differential_evolution(objective, bounds, maxiter=10000, tol=1e-4, atol=1e-6, seed=seed)
+        return result.x, result.fun
+    dsfl_params, dsfl_rss = fit_dsfl(dsfl_objective)
+    return dsfl_params, dsfl_rss
+
+
+@app.cell
+def _(T_to_color, axis_labels, dsfl, mof_water_ads, np, plt):
+    def viz_fitting_isotherms(mof, params, RSS):
+        plt.figure()
+        plt.title('water adsorption isotherms')
+        plt.xlabel(axis_labels['pressure'])
+        plt.ylabel(axis_labels['adsorption'])
+        m1, k1, a1, v1, m2, k2, a2, v2 = params
+        for temperature in mof_water_ads[mof].data_temperatures:
+            P0 = saturation_pressure_bar(temperature) 
+            # read ads isotherm data
+            data = mof_water_ads[mof]._read_ads_data(temperature)
+
+            # draw data
+            plt.scatter(
+                np.array(data['P/P_0']), data['Water Uptake [kg kg-1]'], 
+                marker="s",
+                clip_on=False, color=T_to_color(temperature), label="{}°C".format(temperature)
+            )        
+        
+            p_ovr_p0s = np.linspace(0, 1, 100)[1:]
+            plt.plot(
+                    p_ovr_p0s, [dsfl(params, (temperature+273.15, p_ovr_p0*P0)) 
+                                for p_ovr_p0 in p_ovr_p0s], 
+                    color=T_to_color(temperature), label=str(temperature)+"°C DSFL"
+            )
+        print("fit params:", params)
+        print("RSS:", RSS)
+        plt.ylim(ymin=0)
+        plt.xlim(xmin=0)
+        plt.title(mof)
+        plt.legend(prop={'size': 14})
+        plt.show()
+    return (viz_fitting_isotherms,)
+
+
+@app.cell
+def _(dsfl_params, dsfl_rss, viz_fitting_isotherms):
+    viz_fitting_isotherms("MOF-801", dsfl_params, dsfl_rss)
     return
 
 
