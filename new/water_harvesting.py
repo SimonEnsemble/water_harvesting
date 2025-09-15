@@ -1673,7 +1673,7 @@ def _(
                 pure_mof_harvester["mass [kg]"].min(), color="gray", linestyle="--"
             )
 
-            if not ((weather.month == 8) and (weather.location == "Tucson")) and not ("MOF-801G" in pure_mof_harvester.index):
+            if not ((weather.month == 6) and (weather.location == "Tucson")) and not ("MOF-801G" in pure_mof_harvester.index):
                 plt.text(-0.5, pure_mof_harvester["mass [kg]"].min(), 
                          f"optimal single-MOF bed ({opt_pure_mof})", fontsize=12,
                             verticalalignment='center', horizontalalignment="left", 
@@ -1814,7 +1814,10 @@ def _(fig_dir, mof_to_color, my_date_format, plt):
             )
             bottom = bottom + w_mof
         plt.axhline(y=daily_water_demand, color="black", linestyle="--", label="demand")
-        plt.legend(prop={'size': 10}, loc="upper left", ncol=1)# bbox_to_anchor=(1.05, 1), )
+        plt.legend(
+            prop={'size': 10}, ncol=1, 
+            loc="upper left" if weather.location == "Socorro" else "center"
+        )# bbox_to_anchor=(1.05, 1), )
         plt.title(weather.loc_title)
         plt.gca().xaxis.set_major_formatter(my_date_format)
         if weather.location == "Socorro":
@@ -1903,13 +1906,14 @@ def _(opt_info):
 @app.cell
 def _(fig_dir, my_date_format, opt_info, plt, weather):
     def viz_marginals(opt_info, weather):
-        plt.figure(figsize=(6.4 * 0.8, 3.6 * 0.8))
+        plt.figure(figsize=(6.4 * 0.8, 3.6))
         plt.bar(weather.ads_des_conditions["date"], -opt_info["marginals"])
         plt.xticks(rotation=90)
         plt.ylabel("shadow price\n[kg MOF / kg H$_2$O]")
         plt.gca().xaxis.set_major_formatter(my_date_format)
-        lg = plt.legend(title=f"{weather.loc_timespan_title}", prop={'size': 12})
-        plt.savefig(fig_dir + f"/shadow_prices_{weather.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
+        plt.title(f"{weather.loc_timespan_title}")
+        plt.tight_layout()
+        plt.savefig(fig_dir + f"/shadow_prices_{weather.loc_timespan_title}.pdf", format="pdf")
         plt.show()
 
     viz_marginals(opt_info, weather)
