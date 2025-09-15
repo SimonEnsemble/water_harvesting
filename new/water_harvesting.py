@@ -322,33 +322,6 @@ def _(
             # interpolate
             return np.interp(temperature, self.data_temperatures, n_preds)
 
-        def rmae_prediction(self, temperature):
-            """
-            compute the MAE of adsorption, | predicted - actual | at a given temperature
-            """
-            # read in data
-            data = self._read_ads_data(temperature)
-            n = data.shape[0] # number of data points
-
-            # loop over data
-            mae = 0.0
-            for i in range(n):
-                pred_ads = self.predict_water_adsorption(temperature, data.loc[i, "P/P_0"])
-                true_ads = data.loc[i, "Water Uptake [kg kg-1]"]
-                mae += abs(pred_ads - true_ads)
-            mae /= n # normalize for number of data
-
-            rmse = mae / data["Water Uptake [kg kg-1]"].mean() # normalize for amount
-
-            print(f"\trelative MSE at T {temperature}C = {rmse}.")
-
-            # compare transition pressures
-            p_star_data = self.find_transition_p(temperature, "data")
-            p_star_pred = self.find_transition_p(temperature, "predicted")
-            print("\t\tp transition (data): ", p_star_data)
-            print("\t\tp transition (theory): ", p_star_pred)
-            print("\t\t\tdifference: ", abs(p_star_data - p_star_pred))
-
         def viz_adsorption_isotherm(self, temperature, incl_predictions=True):
             data = self._read_ads_data(temperature)
 
@@ -552,7 +525,6 @@ def _(mo):
 @app.cell
 def _(mof, mof_to_data_temperatures):
     for _T in mof_to_data_temperatures["MOF-801"]:
-        mof.rmae_prediction(_T)
         _p_data, _w_data = mof.find_transition_p(_T, "data")
         _p_pred, _w_data = mof.find_transition_p(_T, "predicted")
         print(f"pred vs ")
@@ -604,13 +576,6 @@ def _(mof_water_ads):
 @app.cell
 def _(mof_water_ads):
     mof_water_ads["CAU-23"].plot_characteristic_curves(save=True)
-    return
-
-
-@app.cell
-def _(mof_to_data_temperatures, mof_water_ads):
-    for _T in mof_to_data_temperatures["CAU-23"]:
-        mof_water_ads["CAU-23"].rmae_prediction(_T)
     return
 
 
@@ -1214,7 +1179,7 @@ def _(mo):
 def _(Weather):
     weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
     weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
-    weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
+    # weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
 
@@ -1309,6 +1274,15 @@ def _(mof_water_ads, predict_water_delivery, weather):
 
 @app.cell
 def _(water_del):
+    # lookit just water dels
+    water_del[["date"] + [mof + " water delivery [g/g]" for mof in ["KMF-1", "MOF-303", "MIL-160"]]]
+    # water_del[["date"] + [mof + " water delivery [g/g]" for mof in mofs]]
+    return
+
+
+@app.cell
+def _(water_del):
+    # lookit water del for a single MOF
     trim_water_delivery_data(water_del, "KMF-1")
     return
 
@@ -1370,60 +1344,76 @@ def _(
     return (viz_water_delivery,)
 
 
-@app.cell
-def _(time_to_color):
-    time_to_color
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""illustrate that CAU-23 picks up where MOF-303 fails.""")
     return
 
 
 @app.cell
 def _(mof_water_ads, viz_water_delivery, water_del, weather):
-    viz_water_delivery(water_del, "KMF-1", 3, mof_water_ads, weather)
+    if weather.location == "Socorro":
+        viz_water_delivery(water_del, "CAU-23", 9, mof_water_ads, weather)
     return
 
 
 @app.cell
 def _(mof_water_ads, viz_water_delivery, water_del, weather):
-    viz_water_delivery(water_del, "KMF-1", 9, mof_water_ads, weather)
+    if weather.location == "Socorro":
+        viz_water_delivery(water_del, "MOF-303", 8, mof_water_ads, weather)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""illustrate that CAU-23 picks up where MOF-303 and KMF-1 fail. also day 10 anomaly.""")
     return
 
 
 @app.cell
 def _(mof_water_ads, viz_water_delivery, water_del, weather):
-    viz_water_delivery(water_del, "MIL-160", 2, mof_water_ads, weather)
+    if weather.location == "Socorro":
+        viz_water_delivery(water_del, "CAU-23", 9, mof_water_ads, weather)
     return
 
 
 @app.cell
 def _(mof_water_ads, viz_water_delivery, water_del, weather):
-    viz_water_delivery(water_del, "CAU-23", 2, mof_water_ads, weather)
+    if weather.location == "Socorro":
+        viz_water_delivery(water_del, "MOF-303", 9, mof_water_ads, weather)
     return
 
 
 @app.cell
 def _(mof_water_ads, viz_water_delivery, water_del, weather):
-    viz_water_delivery(water_del, "Al-Fum", 9, mof_water_ads, weather)
+    if weather.location == "Socorro":
+        viz_water_delivery(water_del, "KMF-1", 9, mof_water_ads, weather)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""day 4 anomaly.""")
     return
 
 
 @app.cell
 def _(mof_water_ads, viz_water_delivery, water_del, weather):
-    viz_water_delivery(water_del, "MIL-160", 9, mof_water_ads, weather)
+    if weather.location == "Socorro":
+        viz_water_delivery(water_del, "MIL-160", 3, mof_water_ads, weather)
     return
 
 
 @app.cell
 def _(mof_water_ads, viz_water_delivery, water_del, weather):
-    viz_water_delivery(water_del, "MOF-801", 9, mof_water_ads, weather)
+    if weather.location == "Socorro":
+        viz_water_delivery(water_del, "CAU-23", 3, mof_water_ads, weather)
     return
 
 
 @app.cell
 def _(fig_dir, mof_to_color, mof_to_marker, my_date_format, plt):
-    def viz_water_delivery_time_series(water_del, weather):
-        # infer mof list
-        mofs = [col.split()[0] for col in water_del.columns if "delivery" in col]
-
+    def viz_water_delivery_time_series(water_del, weather, mofs, savetag=""):
         plt.figure(figsize=(6.4 * 0.8, 3.25))
         plt.ylabel("water delivery\n[kg H$_2$O/kg MOF]")
         plt.xticks(rotation=90, ha='center')
@@ -1436,7 +1426,8 @@ def _(fig_dir, mof_to_color, mof_to_marker, my_date_format, plt):
         plt.title(weather.loc_title)
         plt.gca().xaxis.set_major_formatter(my_date_format)
         plt.savefig(
-            fig_dir + f"/daily_water_delivery_by_mof_{weather.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight"
+            fig_dir + f"/daily_water_delivery_by_mof_{weather.loc_timespan_title}" + savetag + ".pdf", 
+            format="pdf", bbox_inches="tight"
         )
         plt.show()
     return (viz_water_delivery_time_series,)
@@ -1475,8 +1466,37 @@ def _(viz_water_delivery_time_series_mof, water_del):
 
 
 @app.cell
+def _(mofs, water_del):
+    # wut MOF has the highest average water delivery?
+    water_del[[mof + " water delivery [g/g]" for mof in mofs]].mean().sort_values()
+    return
+
+
+@app.cell
+def _(mofs, water_del):
+    # worst-case analysis
+    water_del[[mof + " water delivery [g/g]" for mof in mofs]].min().sort_values()
+    return
+
+
+@app.cell
+def _(mofs, water_del):
+    # when constraints active
+    water_del[[mof + " water delivery [g/g]" for mof in mofs]].iloc[[3, 8, 9]]
+    return
+
+
+@app.cell
+def _(mofs, viz_water_delivery_time_series, water_del, weather):
+    viz_water_delivery_time_series(water_del, weather, mofs)
+    return
+
+
+@app.cell
 def _(viz_water_delivery_time_series, water_del, weather):
-    viz_water_delivery_time_series(water_del, weather)
+    if weather.location == "Socorro":
+        viz_water_delivery_time_series(water_del, weather, ["KMF-1", "MOF-303", "MIL-160", "CAU-23"], savetag="_explain_day_10")
+        # viz_water_delivery_time_series(water_del, weather, ["KMF-1", "MOF-303", "MIL-160"], savetag="_explain_no_KMF1")
     return
 
 
@@ -1822,6 +1842,43 @@ def _(
 @app.cell
 def _(opt_info):
     opt_info["slack"]
+    return
+
+
+@app.cell
+def _(water_del):
+    water_del
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(mofs, opt_mass_of_mofs, water_del):
+    def build_water_del_opt_harvester_data(water_del, opt_mass_of_mofs):
+        water_del_opt_harvester = water_del[["date"]].copy()
+        for mof in mofs:
+            m_opt_mof = opt_mass_of_mofs.loc[mof, "mass [kg]"]
+            if m_opt_mof == 0.0:
+                continue
+            col = mof + " water delivery [g]"
+            water_del_opt_harvester[col] = water_del[mof + " water delivery [g/g]"] * m_opt_mof
+
+        water_del_opt_harvester["total water delivery [g]"] = water_del_opt_harvester.drop("date", axis=1).sum(axis=1)
+    
+        for mof in mofs:
+            if opt_mass_of_mofs.loc[mof, "mass [kg]"] == 0.0:
+                continue
+            col = "fraction delivered by " + mof
+            water_del_opt_harvester[col] = water_del_opt_harvester[mof + " water delivery [g]"] / water_del_opt_harvester["total water delivery [g]"]
+    
+        return water_del_opt_harvester
+
+    water_del_opt_harvester = build_water_del_opt_harvester_data(water_del, opt_mass_of_mofs)
+    water_del_opt_harvester
     return
 
 
@@ -2259,6 +2316,13 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    checkbox_alt_models = mo.ui.checkbox(label="fit alt models")
+    checkbox_alt_models
+    return (checkbox_alt_models,)
+
+
 @app.cell
 def _(mof_water_ads, water_vapor_presssure):
     def assemble_all_ads_data(mof_water_ads, mof):
@@ -2304,7 +2368,7 @@ def _(A_list, n_list, np, polanyi_model):
 
 
 @app.cell
-def _(differential_evolution, polanyi_objective):
+def _(differential_evolution):
     def fit_polanyi(objective, seed=100):
         bounds = [
             (0, 1),       # m [kg/kg]
@@ -2315,9 +2379,7 @@ def _(differential_evolution, polanyi_objective):
             objective, bounds, maxiter=10000, tol=1e-4, atol=1e-6, seed=seed, popsize=100
         )
         return result.x, result.fun
-
-    polanyi_params, polanyi_rss = fit_polanyi(polanyi_objective)
-    return polanyi_params, polanyi_rss
+    return (fit_polanyi,)
 
 
 @app.cell
@@ -2363,8 +2425,16 @@ def _(T_to_color, axis_labels, np, plt, polanyi_model):
 
 
 @app.cell
-def _(mof_water_ads, polanyi_params, polanyi_rss, viz_parametric_polanyi_fit):
-    viz_parametric_polanyi_fit(mof_water_ads, "MOF-801", polanyi_params, polanyi_rss)
+def _(
+    checkbox_alt_models,
+    fit_polanyi,
+    mof_water_ads,
+    polanyi_objective,
+    viz_parametric_polanyi_fit,
+):
+    if checkbox_alt_models.value:
+        polanyi_params, polanyi_rss = fit_polanyi(polanyi_objective)
+        viz_parametric_polanyi_fit(mof_water_ads, "MOF-801", polanyi_params, polanyi_rss)
     return
 
 
@@ -2401,7 +2471,7 @@ def _(P_list, T_list, dsfl, n_list, np):
 
 
 @app.cell
-def _(differential_evolution, dsfl_objective):
+def _(differential_evolution):
     def fit_dsfl(objective, seed=100):
         bounds = [
             (0,   1),     # m1
@@ -2415,9 +2485,7 @@ def _(differential_evolution, dsfl_objective):
         ]
         result = differential_evolution(objective, bounds, maxiter=10000, tol=1e-4, atol=1e-6, seed=seed, popsize=100)
         return result.x, result.fun
-
-    dsfl_params, dsfl_rss = fit_dsfl(dsfl_objective)
-    return dsfl_params, dsfl_rss
+    return (fit_dsfl,)
 
 
 @app.cell
@@ -2461,8 +2529,16 @@ def _(T_to_color, axis_labels, dsfl, np, plt, water_vapor_presssure):
 
 
 @app.cell
-def _(dsfl_params, dsfl_rss, mof_water_ads, viz_dslf_fit):
-    viz_dslf_fit(mof_water_ads, "MOF-801", dsfl_params, dsfl_rss)
+def _(
+    checkbox_alt_models,
+    dsfl_objective,
+    fit_dsfl,
+    mof_water_ads,
+    viz_dslf_fit,
+):
+    if checkbox_alt_models.value:
+        dsfl_params, dsfl_rss = fit_dsfl(dsfl_objective)
+        viz_dslf_fit(mof_water_ads, "MOF-801", dsfl_params, dsfl_rss)
     return
 
 
