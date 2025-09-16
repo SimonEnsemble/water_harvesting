@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.15.3"
+__generated_with = "0.12.0"
 app = marimo.App(width="medium")
 
 
@@ -27,7 +27,10 @@ def _():
 
     # matplotlib styles
     from aquarel import load_theme
-    theme = load_theme("boxy_light").set_font(size=16).set_color(palette=sns.color_palette("pastel")).set_title(size='medium')
+    theme = load_theme("boxy_light").set_font(size=16).set_color(palette=sns.color_palette("pastel")).set_title(size='medium').set_overrides({
+        "axes.spines.right": False,
+        "axes.spines.top": False
+    })
     # .set_color(
     #     palette=["#458588", "#d65d0e", "#98971a", "#cc241d", "#b16286", "#d79921"]
     # )
@@ -40,9 +43,13 @@ def _():
         IsotonicRegression,
         LinearRegression,
         copy,
+        dataclass,
         differential_evolution,
+        interpolate,
         kneefinder,
         linprog,
+        load_theme,
+        mdates,
         mo,
         mpl,
         my_date_format,
@@ -53,6 +60,7 @@ def _():
         plt,
         random,
         sns,
+        theme,
         truncnorm,
         warnings,
     )
@@ -80,31 +88,31 @@ def _(os):
 def _(mo):
     mo.md(
         r"""
-    # 💧 modeling water adsorption in the MOFs
+        # 💧 modeling water adsorption in the MOFs
 
-    ::icon-park:data:: experimental water adsorption data in MOFs; raw data stored in `data/`.
+        ::icon-park:data:: experimental water adsorption data in MOFs; raw data stored in `data/`.
 
-    | MOF | original reference | data extrd_or_n method | confirmed data fidelity | notes | Ashlee's list |
-    | -- | -- | -- | -- | -- | -- |
-    | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6a | ✅ | | ✅ |
-    | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2B | ✅ |  |✅ |
-    | CAU-23 | [link](https://www.nature.com/articles/s41467-019-10960-0)| plot digitized from Fig 2 | ✅ | | ✅ |
-    | MIL-160 | [link](https://onlinelibrary.wiley.com/doi/10.1002/adma.201502418) | plot digitized from SI Fig. 4 |✅ | |✅ |
-    | Y-shp-MOF-5 | [link](https://pubs.acs.org/doi/10.1021/jacs.7b04132) | plot digitized from Fig. 2 | ❌ | too severe hysteresis | ✅ |
-    | MOF-303 | [link](https://www.science.org/doi/10.1126/science.abj0890) | plot digitized from Fig. 1 A |✅ | | ✅ |
-    | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 | ✅ | caution: moderate hysteresis | ✅ |
-    | Al-Fum | [link](https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d) | plot digitized from Fig. 3 | ✅ | |✅ |
-    | MIP-200 | [link](https://www.nature.com/articles/s41560-018-0261-6) | plot digitized from Fig. 2 | ✅ ||✅ |
-    | MOF-801-G | [link](https://www.science.org/doi/10.1126/sciadv.aat3198) | plot digitized from Fig. 2 | 
+        | MOF | original reference | data extrd_or_n method | confirmed data fidelity | notes | Ashlee's list |
+        | -- | -- | -- | -- | -- | -- |
+        | MOF-801 | [link](https://doi.org/10.1038/s41467-018-03162-7) | plot digitized from SI Fig. 6a | ✅ | | ✅ |
+        | KMF-1 | [link](https://www.nature.com/articles/s41467-020-18968-7) | plot digitized from Fig. 2B | ✅ |  |✅ |
+        | CAU-23 | [link](https://www.nature.com/articles/s41467-019-10960-0)| plot digitized from Fig 2 | ✅ | | ✅ |
+        | MIL-160 | [link](https://onlinelibrary.wiley.com/doi/10.1002/adma.201502418) | plot digitized from SI Fig. 4 |✅ | |✅ |
+        | Y-shp-MOF-5 | [link](https://pubs.acs.org/doi/10.1021/jacs.7b04132) | plot digitized from Fig. 2 | ❌ | too severe hysteresis | ✅ |
+        | MOF-303 | [link](https://www.science.org/doi/10.1126/science.abj0890) | plot digitized from Fig. 1 A |✅ | | ✅ |
+        | CAU-10H | [link](https://pubs.rsc.org/en/content/articlelanding/2014/dt/c4dt02264e)| plot digitized from Fig. 2 | ✅ | caution: moderate hysteresis | ✅ |
+        | Al-Fum | [link](https://pubs.rsc.org/en/content/articlelanding/2014/ra/c4ra03794d) | plot digitized from Fig. 3 | ✅ | |✅ |
+        | MIP-200 | [link](https://www.nature.com/articles/s41560-018-0261-6) | plot digitized from Fig. 2 | ✅ ||✅ |
+        | MOF-801-G | [link](https://www.science.org/doi/10.1126/sciadv.aat3198) | plot digitized from Fig. 2 | 
 
-    we extracted all water adsorption data from plots in the papers using [plot digitizer](https://www.graphreader.com/v2). we took only the _adsorption_ branch, neglecting hysteresis.
+        we extracted all water adsorption data from plots in the papers using [plot digitizer](https://www.graphreader.com/v2). we took only the _adsorption_ branch, neglecting hysteresis.
 
-    below, our class `MOFWaterAds` aims to:
+        below, our class `MOFWaterAds` aims to:
 
-    * read in the raw adsorption data
-    * visualize the raw adsorption data
-    * employ Polanyi potential theory to predict adsorption in MOFs at any temperature and pressure.
-    """
+        * read in the raw adsorption data
+        * visualize the raw adsorption data
+        * employ Polanyi potential theory to predict adsorption in MOFs at any temperature and pressure.
+        """
     )
     return
 
@@ -170,7 +178,7 @@ def _(mpl):
         return temperature_cmap(temperature_cmap_norm(temperature))
 
     temperature_cmap
-    return T_to_color, axis_labels
+    return T_to_color, axis_labels, temperature_cmap, temperature_cmap_norm
 
 
 @app.cell
@@ -643,10 +651,10 @@ def _(mof_water_ads):
 def _(mo):
     mo.md(
         r"""
-    ## 🪟 viz all room-temperature isotherms on one plot
+        ## 🪟 viz all room-temperature isotherms on one plot
 
-    (not all data are at 25 degrees C, so we just plot predictions.)
-    """
+        (not all data are at 25 degrees C, so we just plot predictions.)
+        """
     )
     return
 
@@ -675,7 +683,7 @@ def _(axis_labels, fig_dir, mof_to_color, mof_water_ads, np, plt):
         plt.show()
 
     viz_all_predicted_adsorption_isotherms(25, mof_water_ads, draw_knee=False)
-    return
+    return (viz_all_predicted_adsorption_isotherms,)
 
 
 @app.cell(hide_code=True)
@@ -697,16 +705,16 @@ def _(fig_dir, mof_to_color, mof_to_marker, mof_water_ads, mofs, plt):
             p_star, w_star = mof_water_ads[mof].find_transition_p(temperature, "predicted")
             print(f"{mof}: p* = {p_star} RH, w = {w_max}")
 
-            plt.scatter([p_star], [w_max], color=mof_to_color[mof], label=mof, s=60, marker=mof_to_marker[mof])
+            plt.scatter([p_star], [w_max], color=mof_to_color[mof], label=mof, s=80, marker=mof_to_marker[mof])
         plt.xlim(0, 0.5)
         plt.ylim(0, 0.6)
         plt.title("T = {}°C".format(temperature))
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.legend(ncol=2)
         plt.savefig(fig_dir + "/isotherm_transitions.pdf", format="pdf", bbox_inches="tight")
         plt.show()
 
     viz_step_locations(mof_water_ads, 25)
-    return
+    return (viz_step_locations,)
 
 
 @app.cell
@@ -717,12 +725,12 @@ def _(mof):
 
 @app.cell
 def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
-    def viz_all_measured_adsorption_isotherms(mof_water_ads):
+    def viz_all_measured_adsorption_isotherms(mof_water_ads, mofs, save_tag=""):
         fig = plt.Figure(figsize=(6.4*0.8, 4.8*.8))
         plt.xlabel(axis_labels["pressure"])
         plt.ylabel(axis_labels["adsorption"])
 
-        for mof in mof_water_ads.keys():
+        for mof in mofs:
             # choose a temperature
             if 25 in mof_water_ads[mof].data_temperatures:
                 T = 25
@@ -743,25 +751,24 @@ def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
                 color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
                 # markerfacecolors='none', markeredgecolors=mof_to_color[mof], 
                 marker=mof_to_marker[mof], #s=50
+                markersize=8 if save_tag == "" else 12
             )
-        plt.legend(prop={'size': 12})# bbox_to_anchor=(1.05, 0.5), loc='center left')
+        if save_tag == "":
+            plt.legend(prop={'size': 12})# bbox_to_anchor=(1.05, 0.5), loc='center left')
+        else:
+            plt.legend(loc="lower right")
+            plt.grid(False)
         plt.xlim([0, 1])
         plt.ylim([0, 0.5])
         # plt.tight_layout()
-        plt.savefig(fig_dir + "/MOF_water_adsorption.pdf", format="pdf", bbox_inches='tight')
+        plt.savefig(fig_dir + "/MOF_water_adsorption" + save_tag + ".pdf", format="pdf", bbox_inches='tight')
         plt.show()
     return (viz_all_measured_adsorption_isotherms,)
 
 
 @app.cell
-def _(mof_water_ads):
-    mof_water_ads["MIL-160"].data_temperatures
-    return
-
-
-@app.cell
-def _(mof_water_ads, viz_all_measured_adsorption_isotherms):
-    viz_all_measured_adsorption_isotherms(mof_water_ads)
+def _(mof_water_ads, mofs, viz_all_measured_adsorption_isotherms):
+    viz_all_measured_adsorption_isotherms(mof_water_ads, mofs)
     return
 
 
@@ -769,10 +776,10 @@ def _(mof_water_ads, viz_all_measured_adsorption_isotherms):
 def _(mo):
     mo.md(
         r"""
-    # 💧 water vapor pressure
+        # 💧 water vapor pressure
 
-    Antoine Equation Parameters from NIST [here](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Mask=4), valid 293 K to 343 K i.e. 20 deg C to 70 deg C, from Gubkov, Fermor, et al., 1964.
-    """
+        Antoine Equation Parameters from NIST [here](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Mask=4), valid 293 K to 343 K i.e. 20 deg C to 70 deg C, from Gubkov, Fermor, et al., 1964.
+        """
     )
     return
 
@@ -822,23 +829,23 @@ def _(fig_dir, np, plt, water_vapor_presssure):
         plt.show()
 
     viz_water_vapor_presssure()
-    return
+    return (viz_water_vapor_presssure,)
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-    **the desorption process**. 
+        **the desorption process**. 
 
-    1. we take air at daytime temperature $T_d$ and relative humidity $h_d\in[0, 1]$.
-    the associated daytime partial pressure of water is $p_d = h_d p^* (T_d)$, where the vapor pressure of water at this daytime temperature $p^* (T_d)$ is from Antoine's equation. this air is at 1 atm.
-    2. we heat up this daytime air using the sun, to a temperature $T_s>T_d$. this is a constant-pressure process. so, the percent water in the air remains the same. the fraction water is just the partial pressure divided by total pressure (ideal gas law). since the total pressure is constant, the partial pressure of water remains the same, then, at $p_d$. i.e. $p_s=p_d$. however, the hotter air can hold more water, since the saturation pressure of water vapor increases with tempearture. so we calculate the water vapor saturation pressure $p^*(T_s)$ at this new temperature and compute $h_s=p_d/p^*(T_s)$ as the relative humidity at these hotter conditions.
+        1. we take air at daytime temperature $T_d$ and relative humidity $h_d\in[0, 1]$.
+        the associated daytime partial pressure of water is $p_d = h_d p^* (T_d)$, where the vapor pressure of water at this daytime temperature $p^* (T_d)$ is from Antoine's equation. this air is at 1 atm.
+        2. we heat up this daytime air using the sun, to a temperature $T_s>T_d$. this is a constant-pressure process. so, the percent water in the air remains the same. the fraction water is just the partial pressure divided by total pressure (ideal gas law). since the total pressure is constant, the partial pressure of water remains the same, then, at $p_d$. i.e. $p_s=p_d$. however, the hotter air can hold more water, since the saturation pressure of water vapor increases with tempearture. so we calculate the water vapor saturation pressure $p^*(T_s)$ at this new temperature and compute $h_s=p_d/p^*(T_s)$ as the relative humidity at these hotter conditions.
 
-    putting it all together, the new relative humidity is: 
+        putting it all together, the new relative humidity is: 
 
-    $h_s=p_d/p^*(T_s)=h_d p^* (T_d)/p^*(T_s)$
-    """
+        $h_s=p_d/p^*(T_s)=h_d p^* (T_d)/p^*(T_s)$
+        """
     )
     return
 
@@ -847,12 +854,12 @@ def _(mo):
 def _(mo):
     mo.md(
         r"""
-    # ⛅ weather data
+        # ⛅ weather data
 
-    📍 Tuscon, Arizona. in 2024.
+        📍 Tuscon, Arizona. in 2024.
 
-    ::rivet-icons:data::  [NOAA](https://www.ncei.noaa.gov/access/crn/qcdatasets.html) `Hourly02` data set.
-    """
+        ::rivet-icons:data::  [NOAA](https://www.ncei.noaa.gov/access/crn/qcdatasets.html) `Hourly02` data set.
+        """
     )
     return
 
@@ -876,13 +883,14 @@ def _(os):
     wdata_dir = "data/NOAA_weather_data"
     wfiles = os.listdir(wdata_dir)
     list(filter(lambda wfile: "CRNH" in wfile, wfiles))
-    return
+    return wdata_dir, wfiles
 
 
 @app.cell
 def _(
     city_to_state,
     fig_dir,
+    mdates,
     my_date_format,
     my_date_format_str,
     np,
@@ -964,33 +972,44 @@ def _(
                         water_vapor_presssure(day["SUR_TEMP"]), axis=1
             )
 
-        def viz_timeseries(self, save=False, incl_legend=True, legend_dx=0.0, legend_dy=0.0):
+        def viz_timeseries(self, save=False, incl_legend=True, legend_dx=0.0, legend_dy=0.0, toy=False):
             place_to_color = {'air': "k", 'surface': "k"}
 
             fig, axs = plt.subplots(2, 1, sharex=True)#, figsize=(6.4*0.8, 4.8*.8))
+            if toy:
+                for ax in axs:
+                    ax.grid(False)
             plt.xticks(rotation=90, ha='center')
+            n_days = len(self.wdata["night"]["datetime"])
+            axs[1].xaxis.set_major_locator(
+                mdates.AutoDateLocator(minticks=n_days-1, maxticks=n_days+1)
+            )
 
-            axs[0].set_title(self.loc_title)
+            if not toy:
+                axs[0].set_title(self.loc_title)
 
             # T
-            axs[0].plot(
-                self.raw_data["datetime"], self.raw_data["T_HR_AVG"], 
-                label="bulk air", color=place_to_color["air"], linewidth=2
-            )
-            axs[0].plot(
-                self.raw_data["datetime"], self.raw_data["SUR_TEMP"], 
-                label="soil surface", color=place_to_color["surface"], linewidth=2, linestyle="--"
-            )
+            if not toy:
+                axs[0].plot(
+                    self.raw_data["datetime"], self.raw_data["T_HR_AVG"], 
+                    label="bulk air", color=place_to_color["air"], linewidth=2
+                )
+                axs[0].plot(
+                    self.raw_data["datetime"], self.raw_data["SUR_TEMP"], 
+                    label="soil surface", color=place_to_color["surface"], linewidth=2, linestyle="--"
+                )
             axs[0].set_ylabel("temperature [°C]")
             axs[0].scatter(
                 self.wdata["night"]["datetime"], self.wdata["night"]["T_HR_AVG"],
                 edgecolors="black", clip_on=False,
-                marker="^", color=time_to_color["night"], zorder=10, label="adsorption\nconditions", s=100
+                marker="^", color=time_to_color["night"], zorder=10, label="adsorption\nconditions", 
+                s=200 if toy else 100 
             ) # nighttime air temperature
             axs[0].scatter(
                 self.wdata["day"]["datetime"], self.wdata["day"]["SUR_TEMP"],
                 edgecolors="black", clip_on=False,
-                marker="v", color=time_to_color["day"], zorder=10, label="desorption\nconditions", s=100
+                marker="v", color=time_to_color["day"], zorder=10, label="desorption\nconditions",
+                s=200 if toy else 100 
             ) # daytime surface temperature
             # axs[0].set_title(self.location)
             axs[0].set_ylim(10, 65)
@@ -998,24 +1017,25 @@ def _(
             axs[0].set_xlim(self.raw_data["datetime"].min(), self.raw_data["datetime"].max())
 
             # RH
-            axs[1].plot(
-                self.raw_data["datetime"], self.raw_data["RH_HR_AVG"] / 100, 
-                color=place_to_color["air"], label="bulk air"
-            )
-            axs[1].plot(
-                self.raw_data["datetime"], self.raw_data["SUR_RH_HR_AVG"] / 100, 
-                color=place_to_color["surface"], label="near-surface air", linestyle="--"
-            )
+            if not toy:
+                axs[1].plot(
+                    self.raw_data["datetime"], self.raw_data["RH_HR_AVG"] / 100, 
+                    color=place_to_color["air"], label="bulk air"
+                )
+                axs[1].plot(
+                    self.raw_data["datetime"], self.raw_data["SUR_RH_HR_AVG"] / 100, 
+                    color=place_to_color["surface"], label="near-surface air", linestyle="--"
+                )
             axs[1].set_ylabel("relative humidity")
             axs[1].scatter(
                 self.wdata["night"]["datetime"], self.wdata["night"]["RH_HR_AVG"] / 100,
                 edgecolors="black", clip_on=False,
-                marker="^", color=time_to_color["night"], zorder=10, s=100,  label="capture conditions"
+                marker="^", color=time_to_color["night"], zorder=10, s=200 if toy else 100,  label="capture conditions"
             ) # nighttime RH
             axs[1].scatter(
                 self.wdata["day"]["datetime"], self.wdata["day"]["SUR_RH_HR_AVG"] / 100,
                 edgecolors="black", clip_on=False,
-                marker="v", color=time_to_color["day"], zorder=10, s=100, label="release conditions"
+                marker="v", color=time_to_color["day"], zorder=10, s=200 if toy else 100, label="release conditions"
             ) # day surface RH
             axs[1].set_ylim(0, 1)
             axs[1].set_yticks([0.2 * _i for _i in range(6)])
@@ -1166,11 +1186,11 @@ def _(
 def _(mo):
     mo.md(
         r"""
-    📍 options: 
+        📍 options: 
 
-    * Tucson, AZ
-    * Socorro, NM
-    """
+        * Tucson, AZ
+        * Socorro, NM
+        """
     )
     return
 
@@ -1258,11 +1278,13 @@ def _(warnings):
     return (predict_water_delivery,)
 
 
-@app.function
-def trim_water_delivery_data(water_del, mof):
-    cols = ["date", "ads T [°C]", "ads P/P0", "des T [°C]", "des P/P0"] + \
-        [col for col in water_del.columns if mof in col]
-    return water_del[cols]
+@app.cell
+def trim_water_delivery_data():
+    def trim_water_delivery_data(water_del, mof):
+        cols = ["date", "ads T [°C]", "ads P/P0", "des T [°C]", "des P/P0"] + \
+            [col for col in water_del.columns if mof in col]
+        return water_del[cols]
+    return (trim_water_delivery_data,)
 
 
 @app.cell
@@ -1281,14 +1303,14 @@ def _(water_del):
 
 
 @app.cell
-def _(water_del):
+def _(trim_water_delivery_data, water_del):
     # lookit water del for a single MOF
     trim_water_delivery_data(water_del, "KMF-1")
     return
 
 
 @app.cell
-def _(mofs, water_del):
+def _(mofs, trim_water_delivery_data, water_del):
     # print average daily water delivery
     for _mof in mofs:
         _wd = trim_water_delivery_data(water_del, _mof)
@@ -1306,6 +1328,7 @@ def _(
     np,
     plt,
     time_to_color,
+    trim_water_delivery_data,
 ):
     def viz_water_delivery(water_del, mof, day_id, mof_water_ads, weather):
         water_del_MOF = trim_water_delivery_data(water_del, mof)
@@ -1412,19 +1435,27 @@ def _(mof_water_ads, viz_water_delivery, water_del, weather):
 
 
 @app.cell
-def _(fig_dir, mof_to_color, mof_to_marker, my_date_format, plt):
-    def viz_water_delivery_time_series(water_del, weather, mofs, savetag=""):
+def _(fig_dir, mdates, mof_to_color, mof_to_marker, my_date_format, plt):
+    def viz_water_delivery_time_series(water_del, weather, mofs, savetag="", toy=False):
+        n_days = len(water_del)
+
         plt.figure(figsize=(6.4 * 0.8, 3.25))
         plt.ylabel("water delivery\n[kg H$_2$O/kg MOF]")
         plt.xticks(rotation=90, ha='center')
         for mof in mofs:
             plt.plot(water_del["date"], water_del[mof + " water delivery [g/g]"], marker=mof_to_marker[mof], 
-                     color=mof_to_color[mof], label=mof, clip_on=False
+                     color=mof_to_color[mof], label=mof, clip_on=False, markersize=12 if toy else 7
             )
         plt.legend(bbox_to_anchor=(1.02, 1), prop={'size': 12})
         plt.ylim(ymin=0.0)
-        plt.title(weather.loc_title)
+        if not toy:
+            plt.title(weather.loc_title)
         plt.gca().xaxis.set_major_formatter(my_date_format)
+        plt.gca().xaxis.set_major_locator(
+                mdates.AutoDateLocator(minticks=n_days-1, maxticks=n_days+1)
+            )
+        if toy:
+            plt.grid(False)
         plt.savefig(
             fig_dir + f"/daily_water_delivery_by_mof_{weather.loc_timespan_title}" + savetag + ".pdf", 
             format="pdf", bbox_inches="tight"
@@ -1504,10 +1535,10 @@ def _(viz_water_delivery_time_series, water_del, weather):
 def _(mo):
     mo.md(
         r"""
-    # ::tabler:baseline-density-large:: baseline: pure-MOF water harvester
+        # ::tabler:baseline-density-large:: baseline: pure-MOF water harvester
 
-    how much MOF do we need for a water harvester based on a pure-MOF water harvester?
-    """
+        how much MOF do we need for a water harvester based on a pure-MOF water harvester?
+        """
     )
     return
 
@@ -1555,17 +1586,17 @@ def _(fig_dir, mof_to_color, mofs, plt, pure_mof_harvester, weather):
         plt.show()
 
     viz_pure_mof_harvester(pure_mof_harvester, mofs, weather)
-    return
+    return (viz_pure_mof_harvester,)
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-    # ::twemoji:control-knobs:: optimizing the water harvester
+        # ::twemoji:control-knobs:: optimizing the water harvester
 
-    💡 minimize the mass of the water harvester by tuning the mass of each MOF used, subject to drinking water constraints on each day.
-    """
+        💡 minimize the mass of the water harvester by tuning the mass of each MOF used, subject to drinking water constraints on each day.
+        """
     )
     return
 
@@ -1639,7 +1670,7 @@ def _(linprog, np, pd, warnings):
 def _(mofs, optimize_harvester, water_del):
     daily_water_demand = 2.0 # kg
     opt_mass_of_mofs, min_mass, opt_info = optimize_harvester(mofs, water_del, daily_water_demand)
-    return daily_water_demand, opt_info, opt_mass_of_mofs
+    return daily_water_demand, min_mass, opt_info, opt_mass_of_mofs
 
 
 @app.cell
@@ -1733,6 +1764,7 @@ def _(
 
 @app.cell
 def _(opt_mass_of_mofs):
+    # composition by mass fraction
     opt_mass_of_mofs / opt_mass_of_mofs["mass [kg]"].sum()
     return
 
@@ -1775,7 +1807,7 @@ def _(fig_dir, get_active_mofs, mof_to_color, opt_mass_of_mofs, plt, weather):
         plt.show()
 
     viz_optimal_harvester_pie(opt_mass_of_mofs, weather)
-    return
+    return (viz_optimal_harvester_pie,)
 
 
 @app.cell(hide_code=True)
@@ -1871,18 +1903,18 @@ def _(mofs, opt_mass_of_mofs, water_del):
             water_del_opt_harvester[col] = water_del[mof + " water delivery [g/g]"] * m_opt_mof
 
         water_del_opt_harvester["total water delivery [g]"] = water_del_opt_harvester.drop("date", axis=1).sum(axis=1)
-    
+
         for mof in mofs:
             if opt_mass_of_mofs.loc[mof, "mass [kg]"] == 0.0:
                 continue
             col = "fraction delivered by " + mof
             water_del_opt_harvester[col] = water_del_opt_harvester[mof + " water delivery [g]"] / water_del_opt_harvester["total water delivery [g]"]
-    
+
         return water_del_opt_harvester
 
     water_del_opt_harvester = build_water_del_opt_harvester_data(water_del, opt_mass_of_mofs)
     water_del_opt_harvester
-    return
+    return build_water_del_opt_harvester_data, water_del_opt_harvester
 
 
 @app.cell(hide_code=True)
@@ -1917,17 +1949,17 @@ def _(fig_dir, my_date_format, opt_info, plt, weather):
         plt.show()
 
     viz_marginals(opt_info, weather)
-    return
+    return (viz_marginals,)
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-    ### sensitivity analysis
+        ### sensitivity analysis
 
-    what happens if we perturb the predicted water delivery?
-    """
+        what happens if we perturb the predicted water delivery?
+        """
     )
     return
 
@@ -2055,17 +2087,22 @@ def _(
 
         for _d in range(n_weather_designs):
             viz_optimal_harvester(mofs, perturbed_weather_designs[_d], None, weather, save_tag=f"modified_weather_{_d}")
-    return
+    return (
+        design_under_perturbed_weather,
+        n_weather_designs,
+        perturbed_weather_designs,
+        sigma,
+    )
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-    ## 2D toy example for visualizing the constraints
+        ## 2D toy example for visualizing the constraints
 
-    suppose there are two candidate MOFs to be carried over three days.
-    """
+        suppose there are two candidate MOFs to be carried over three days.
+        """
     )
     return
 
@@ -2082,30 +2119,30 @@ def _(
     plt,
     predict_water_delivery,
 ):
-    _weather = Weather(month=7, year=2024, location="Tucson", day_min=0, day_max=10)
+    toy_weather = Weather(6, 2024, "Socorro", day_min=8, day_max=10)
 
-    _mofs = ["MOF-801", "Al-Fum"]
+    toy_mofs = ["MOF-303", "CAU-23"]
 
-    _water_del = predict_water_delivery(_weather, {mof: mof_water_ads[mof] for mof in _mofs})
+    toy_water_del = predict_water_delivery(toy_weather, {mof: mof_water_ads[mof] for mof in toy_mofs})
 
-    _opt_mass_of_mofs, _min_mass, _opt_info = optimize_harvester(_mofs, _water_del, daily_water_demand)
+    toy_opt_mass_of_mofs, toy_min_mass, toy_opt_info = optimize_harvester(toy_mofs, toy_water_del, daily_water_demand)
 
-    _pure_mof_harvester = mass_water_harvester(_mofs, _water_del, daily_water_demand)
+    toy_pure_mof_harvester = mass_water_harvester(toy_mofs, toy_water_del, daily_water_demand)
 
-    _start_date = _weather.ads_des_conditions["date"].min().date()
-    _end_data = _weather.ads_des_conditions["date"].max().date()
+    _start_date = toy_weather.ads_des_conditions["date"].min().date()
+    _end_data = toy_weather.ads_des_conditions["date"].max().date()
 
     plt.figure(figsize=(6.4 *0.8, 4.8*.8))
-    plt.xlabel(f"mass of {_mofs[0]} [kg]")
-    plt.ylabel(f"mass of {_mofs[1]} [kg]")
+    plt.xlabel(f"mass of {toy_mofs[0]} [kg]")
+    plt.ylabel(f"mass of {toy_mofs[1]} [kg]")
 
     # plot optimal composition
     plt.scatter(
-        _opt_mass_of_mofs.loc[_mofs[0], "mass [kg]"], _opt_mass_of_mofs.loc[_mofs[1], "mass [kg]"], 
+        toy_opt_mass_of_mofs.loc[toy_mofs[0], "mass [kg]"], toy_opt_mass_of_mofs.loc[toy_mofs[1], "mass [kg]"], 
         s=250, marker="*", clip_on=False, zorder=25, color="C1", edgecolor="black", label="optimal\ncomposition"
     )
 
-    max_mass = 30.0 # _opt_mass_of_mofs["mass [kg]"].max() * 2.5
+    max_mass = 50.0 # _opt_mass_of_mofs["mass [kg]"].max() * 2.5
 
     plt.xlim(0, max_mass)
     plt.ylim(0, max_mass)
@@ -2113,12 +2150,12 @@ def _(
     # plot water delivery constraints
     m0s = np.linspace(0.0, max_mass)
     m1s_feasible = np.zeros(len(m0s))
-    for d in range(_water_del.shape[0]):
-        d_0 = _water_del.loc[d, f"{_mofs[0]} water delivery [g/g]"]
-        d_1 = _water_del.loc[d, f"{_mofs[1]} water delivery [g/g]"]
+    for d in range(toy_water_del.shape[0]):
+        d_0 = toy_water_del.loc[d, f"{toy_mofs[0]} water delivery [g/g]"]
+        d_1 = toy_water_del.loc[d, f"{toy_mofs[1]} water delivery [g/g]"]
 
         m1s = (daily_water_demand - m0s * d_0) / d_1
-        if d in _opt_info["active constraints"]:
+        if d in toy_opt_info["active constraints"]:
             m1s_feasible = np.maximum(m1s_feasible, m1s)
 
         plt.plot(
@@ -2127,7 +2164,7 @@ def _(
         )
 
     # plot constant mass
-    plt.plot(m0s, _min_mass - m0s, color="C5", linestyle="--", label=f"mass = {_min_mass:.2f} kg")
+    plt.plot(m0s, toy_min_mass - m0s, color="C5", linestyle="--", label=f"mass = {toy_min_mass:.2f} kg")
 
     # shade feasible region (works for two active constraints)
     ids_feasible = m1s_feasible < max_mass
@@ -2139,49 +2176,59 @@ def _(
 
     # pure-MOF harvester
     plt.scatter(
-        _pure_mof_harvester.loc[_mofs[0], "mass [kg]"], 0.0, 
+        toy_pure_mof_harvester.loc[toy_mofs[0], "mass [kg]"], 0.0, 
         label="optimal\nsingle-MOF bed", color="C0", clip_on=False, s=100, zorder=100, edgecolor="black"
     )
     plt.scatter(
-        0.0, _pure_mof_harvester.loc[_mofs[1], "mass [kg]"], 
+        0.0, toy_pure_mof_harvester.loc[toy_mofs[1], "mass [kg]"], 
         color="C0", clip_on=False, s=100, zorder=100, edgecolor="black"
     )
 
     plt.gca().set_aspect('equal', 'box')
-    plt.xticks([0, 10, 20, 30])
-    plt.yticks([0, 10, 20, 30])
+    plt.xticks([0, 10, 20, 30, 40, 50])
+    plt.yticks([0, 10, 20, 30, 40, 50])
 
     # split into two lines
-    _lg_title = _weather.loc_title + '\n' + _weather.loc_timespan_title.split(".")[1] + '.'
+    _lg_title = toy_weather.loc_title + '\n' + toy_weather.loc_timespan_title.split(".")[1] + '.'
     _lg = plt.legend(title=_lg_title, bbox_to_anchor=(1.05, 0.5), loc='center left', prop={'size':14})
     _lg.get_title().set_fontsize(14) 
 
-    plt.savefig(fig_dir + f"/twoD_linear_program_{_weather.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
+    plt.savefig(fig_dir + f"/twoD_linear_program_{toy_weather.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
     plt.show()
 
-    _water_del.loc[_opt_info["active constraints"]]
-    _pure_mof_harvester
-    return
-
-
-@app.cell
-def _(sns):
-    sns.color_palette("pastel")
-    return
+    toy_water_del.loc[toy_opt_info["active constraints"]]
+    toy_pure_mof_harvester
+    return (
+        d,
+        d_0,
+        d_1,
+        ids_feasible,
+        m0s,
+        m1s,
+        m1s_feasible,
+        max_mass,
+        toy_min_mass,
+        toy_mofs,
+        toy_opt_info,
+        toy_opt_mass_of_mofs,
+        toy_pure_mof_harvester,
+        toy_water_del,
+        toy_weather,
+    )
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
-    # comparison with MOF-801 harvester in the field
+        # comparison with MOF-801 harvester in the field
 
-    on 22 October 2017 in Scottsdale, AZ, USA. 
+        on 22 October 2017 in Scottsdale, AZ, USA. 
 
-    [publication link](https://www.science.org/doi/10.1126/sciadv.aat3198).
+        [publication link](https://www.science.org/doi/10.1126/sciadv.aat3198).
 
-    > Using 0.825 kg of MOF-801/G, 55 g of water was collected
-    """
+        > Using 0.825 kg of MOF-801/G, 55 g of water was collected
+        """
     )
     return
 
@@ -2216,15 +2263,15 @@ def _(field_weather):
 def _(mo):
     mo.md(
         """
-    eyeballing Fig. 3B in the paper and it says:
+        eyeballing Fig. 3B in the paper and it says:
 
-    > 5% RH at 35° to 40°C during the day
-    > 40% RH at 10° to 15°C during the night
+        > 5% RH at 35° to 40°C during the day
+        > 40% RH at 10° to 15°C during the night
 
-    reasonably matches below except Tucson during the day appears a bit cooler.
+        reasonably matches below except Tucson during the day appears a bit cooler.
 
-    they are able to heat the MOF to almost 90 degrees!
-    """
+        they are able to heat the MOF to almost 90 degrees!
+        """
     )
     return
 
@@ -2346,7 +2393,7 @@ def _(mof_water_ads, water_vapor_presssure):
         return T_list, P_list, n_list, A_list
 
     T_list, P_list, n_list, A_list = assemble_all_ads_data(mof_water_ads, "MOF-801")
-    return A_list, P_list, T_list, n_list
+    return A_list, P_list, T_list, assemble_all_ads_data, n_list
 
 
 @app.cell(hide_code=True)
@@ -2439,7 +2486,7 @@ def _(
     if checkbox_alt_models.value:
         polanyi_params, polanyi_rss = fit_polanyi(polanyi_objective)
         viz_parametric_polanyi_fit(mof_water_ads, "MOF-801", polanyi_params, polanyi_rss)
-    return
+    return polanyi_params, polanyi_rss
 
 
 @app.cell(hide_code=True)
@@ -2543,6 +2590,41 @@ def _(
     if checkbox_alt_models.value:
         dsfl_params, dsfl_rss = fit_dsfl(dsfl_objective)
         viz_dslf_fit(mof_water_ads, "MOF-801", dsfl_params, dsfl_rss)
+    return dsfl_params, dsfl_rss
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""# continue with toy problem for workflow figure""")
+    return
+
+
+@app.cell
+def _(toy_weather):
+    toy_weather.viz_timeseries(toy=True)
+    return
+
+
+@app.cell
+def _(mof_water_ads, toy_mofs, viz_all_measured_adsorption_isotherms):
+    viz_all_measured_adsorption_isotherms(mof_water_ads, toy_mofs, save_tag="toy")
+    return
+
+
+@app.cell
+def _(toy_mofs, toy_water_del, toy_weather, viz_water_delivery_time_series):
+    viz_water_delivery_time_series(toy_water_del, toy_weather, toy_mofs, toy=True)
+    return
+
+
+@app.cell
+def _(toy_opt_mass_of_mofs, toy_weather, viz_optimal_harvester_pie):
+    viz_optimal_harvester_pie(toy_opt_mass_of_mofs, toy_weather)
+    return
+
+
+@app.cell
+def _():
     return
 
 
