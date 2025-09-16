@@ -2635,7 +2635,7 @@ def _(
     toy_weather,
     viz_water_delivery_time_series,
 ):
-    with mpl.rc_context({'figure.figsize': (3, 3)}):
+    with mpl.rc_context({'figure.figsize': (3, 2.5)}):
         viz_water_delivery_time_series(toy_water_del, toy_weather, toy_mofs, toy=True)
     return
 
