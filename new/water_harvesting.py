@@ -159,7 +159,7 @@ def _(mpl):
     # commonly-used plot labels
     axis_labels = {
         'pressure': 'relative humidity',
-        'adsorption': 'water uptake [kg H$_2$O/kg MOF]',
+        'adsorption': 'water uptake\n[kg H$_2$O/kg MOF]',
         'potential': 'Polanyi adsorption potential [kJ/mol]'
     }
 
@@ -722,7 +722,10 @@ def _(mof):
 @app.cell
 def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
     def viz_all_measured_adsorption_isotherms(mof_water_ads, mofs, save_tag=""):
-        fig = plt.Figure(figsize=(6.4*0.8, 4.8*.8))
+        if save_tag == "":
+            fig = plt.Figure(figsize=(6.4*0.8, 4.8*.8))
+        else:
+            fig = plt.Figure()
         plt.xlabel(axis_labels["pressure"])
         plt.ylabel(axis_labels["adsorption"])
 
@@ -747,7 +750,7 @@ def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
                 color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
                 # markerfacecolors='none', markeredgecolors=mof_to_color[mof], 
                 marker=mof_to_marker[mof], #s=50
-                markersize=8 if save_tag == "" else 12
+                markersize=8
             )
         if save_tag == "":
             plt.legend(prop={'size': 12})# bbox_to_anchor=(1.05, 0.5), loc='center left')
@@ -1039,7 +1042,8 @@ def _(
                 axs[1].xaxis.set_major_formatter(my_date_format)
             if incl_legend:
                 axs[1].legend(
-                    prop={'size': 13}, ncol=2, bbox_to_anchor=(0., 1.0 + legend_dy, 1.0 + legend_dx, .1), loc="center"
+                    prop={'size': 13}, ncol=1 if toy else 2, 
+                    bbox_to_anchor=(0., 1.0 + legend_dy, 1.0 + legend_dx, .1), loc="center"
                 )#, loc="center left")
 
             # shade harvesting and desorption window
@@ -1432,12 +1436,15 @@ def _(fig_dir, mdates, mof_to_color, mof_to_marker, my_date_format, plt):
     def viz_water_delivery_time_series(water_del, weather, mofs, savetag="", toy=False):
         n_days = len(water_del)
 
-        plt.figure(figsize=(6.4 * 0.8, 3.25))
+        if toy:
+            plt.figure()
+        else:
+            plt.figure(figsize=(6.4 * 0.8, 3.25))
         plt.ylabel("water delivery\n[kg H$_2$O/kg MOF]")
         plt.xticks(rotation=90, ha='center')
         for mof in mofs:
             plt.plot(water_del["date"], water_del[mof + " water delivery [g/g]"], marker=mof_to_marker[mof], 
-                     color=mof_to_color[mof], label=mof, clip_on=False, markersize=12 if toy else 7
+                     color=mof_to_color[mof], label=mof, clip_on=False, markersize=7
             )
         if not toy:
             plt.legend(bbox_to_anchor=(1.02, 1), prop={'size': 12})
@@ -2581,7 +2588,7 @@ def _(
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""# continue with toy problem for workflow figure""")
+    mo.md(r"""# toy problem for workflow figure""")
     return
 
 
@@ -2607,31 +2614,36 @@ def _(
 
 
 @app.cell
-def _(toy_weather):
-    toy_weather.viz_timeseries(toy=True, save=True)
+def _(mpl, toy_weather):
+    with mpl.rc_context({'figure.figsize': (3, 4.2)}):
+        toy_weather.viz_timeseries(toy=True, save=True)
     return
 
 
 @app.cell
-def _(mof_water_ads, toy_mofs, viz_all_measured_adsorption_isotherms):
-    viz_all_measured_adsorption_isotherms(mof_water_ads, toy_mofs, save_tag="toy")
+def _(mof_water_ads, mpl, toy_mofs, viz_all_measured_adsorption_isotherms):
+    with mpl.rc_context({'figure.figsize': (3, 3)}):
+        viz_all_measured_adsorption_isotherms(mof_water_ads, toy_mofs, save_tag="toy")
     return
 
 
 @app.cell
-def _(toy_mofs, toy_water_del, toy_weather, viz_water_delivery_time_series):
-    viz_water_delivery_time_series(toy_water_del, toy_weather, toy_mofs, toy=True)
+def _(
+    mpl,
+    toy_mofs,
+    toy_water_del,
+    toy_weather,
+    viz_water_delivery_time_series,
+):
+    with mpl.rc_context({'figure.figsize': (3, 3)}):
+        viz_water_delivery_time_series(toy_water_del, toy_weather, toy_mofs, toy=True)
     return
 
 
 @app.cell
-def _(toy_opt_mass_of_mofs, toy_weather, viz_optimal_harvester_pie):
-    viz_optimal_harvester_pie(toy_opt_mass_of_mofs, toy_weather)
-    return
-
-
-@app.cell
-def _():
+def _(mpl, toy_opt_mass_of_mofs, toy_weather, viz_optimal_harvester_pie):
+    with mpl.rc_context({'figure.figsize': (3, 3)}):
+        viz_optimal_harvester_pie(toy_opt_mass_of_mofs, toy_weather)
     return
 
 
