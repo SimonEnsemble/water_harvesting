@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.15.5"
+__generated_with = "0.14.10"
 app = marimo.App(width="medium")
 
 
@@ -2491,8 +2491,8 @@ def _(mo):
 @app.cell
 def _(np):
     def lf(temperature, pressure, m, k, a, v):
-        K = k * np.exp(a / temperature)
-        return (m * K * pressure**v) / (1 + K * pressure**v)
+        Kp = k * np.exp(a / temperature) * pressure**v
+        return (m * Kp) / (1 + Kp)
     return (lf,)
 
 
@@ -2508,9 +2508,8 @@ def _(lf):
 @app.cell
 def _(P_list, T_list, dsfl, n_list, np):
     def dsfl_objective(params):
-        n_pred = np.array([dsfl(params, (temperature, pressure)) 
-                           for temperature, pressure in zip(T_list, P_list)])
-        return np.sum((n_list - n_pred)**2)
+        return np.sum([(n_true - dsfl(params, (temperature, pressure))) ** 2
+                           for temperature, pressure, n_true in zip(T_list, P_list, n_list)])
     return (dsfl_objective,)
 
 
@@ -2518,16 +2517,16 @@ def _(P_list, T_list, dsfl, n_list, np):
 def _(differential_evolution):
     def fit_dsfl(objective, seed=100):
         bounds = [
-            (0,   1),     # m1
+            (0, 1.2),     # m1 1.2
             (0, 0.1),     # k1
             (0, 8e4),     # a1  
-            (0,   2),     # v1 
+            (0,   3),     # v1 3 
             (0,   1),     # m2
             (0, 0.1),     # k2
             (0, 8e4),     # a2
             (0,   5)      # v2
         ]
-        result = differential_evolution(objective, bounds, maxiter=10000, tol=1e-4, atol=1e-6, seed=seed, popsize=100)
+        result = differential_evolution(objective, bounds, maxiter=10000, tol=1e-4, atol=1e-6, seed=seed)
         return result.x, result.fun
     return (fit_dsfl,)
 
@@ -2560,7 +2559,8 @@ def _(T_to_color, axis_labels, dsfl, np, plt, water_vapor_presssure):
                                 for p_ovr_p0 in p_ovr_p0s], 
                     color=T_to_color(temperature), label=str(temperature)+"°C DSLF fit"
             )
-        print("fit params:", params)
+        param_names = ["m1", "k1", "a1", "v1", "m2", "k2", "a2", "v2"]
+        print("fit params:", ", ".join(f"{name}: {param}" for name, param in zip(param_names, params)))
         print("RSS:", RSS)
         plt.ylim(ymin=0)
         plt.xlim(xmin=0)
