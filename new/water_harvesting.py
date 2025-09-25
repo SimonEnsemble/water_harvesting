@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.14.10"
+__generated_with = "0.15.5"
 app = marimo.App(width="medium")
 
 
@@ -29,7 +29,8 @@ def _():
     from aquarel import load_theme
     theme = load_theme("boxy_light").set_font(size=16).set_color(palette=sns.color_palette("pastel")).set_title(size='medium').set_overrides({
         "axes.spines.right": False,
-        "axes.spines.top": False
+        "axes.spines.top": False,
+        'figure.figsize': [6.4 * 0.8, 4.8 * 0.8]
     })
     # .set_color(
     #     palette=["#458588", "#d65d0e", "#98971a", "#cc241d", "#b16286", "#d79921"]
@@ -750,10 +751,10 @@ def _(axis_labels, fig_dir, mof_to_color, mof_to_marker, plt):
                 color=mof_to_color[mof], linewidth=2, label=f"{mof} [{T}°C]",
                 # markerfacecolors='none', markeredgecolors=mof_to_color[mof], 
                 marker=mof_to_marker[mof], #s=50
-                markersize=8
+                markersize=6
             )
         if save_tag == "":
-            plt.legend(prop={'size': 12})# bbox_to_anchor=(1.05, 0.5), loc='center left')
+            plt.legend(prop={'size': 10})# bbox_to_anchor=(1.05, 0.5), loc='center left')
         else:
             # plt.legend(loc="lower right")
             plt.grid(False)
@@ -997,7 +998,7 @@ def _(
                     self.raw_data["datetime"], self.raw_data["SUR_TEMP"], 
                     label="soil surface", color=place_to_color["surface"], linewidth=2, linestyle="--"
                 )
-            axs[0].set_ylabel("temperature [°C]")
+            axs[0].set_ylabel("temperature\n[°C]")
             axs[0].scatter(
                 self.wdata["night"]["datetime"], self.wdata["night"]["T_HR_AVG"],
                 edgecolors="black", clip_on=False,
@@ -1025,7 +1026,7 @@ def _(
                     self.raw_data["datetime"], self.raw_data["SUR_RH_HR_AVG"] / 100, 
                     color=place_to_color["surface"], label="near-surface air", linestyle="--"
                 )
-            axs[1].set_ylabel("relative humidity")
+            axs[1].set_ylabel("relative\nhumidity")
             axs[1].scatter(
                 self.wdata["night"]["datetime"], self.wdata["night"]["RH_HR_AVG"] / 100,
                 edgecolors="black", clip_on=False,
@@ -1036,13 +1037,12 @@ def _(
                 edgecolors="black", clip_on=False,
                 marker="v", color=time_to_color["day"], zorder=10, s=200 if toy else 100, label="release conditions"
             ) # day surface RH
-            axs[1].set_ylim(0, 1)
             axs[1].set_yticks([0.2 * _i for _i in range(6)])
             if self.daynight_wdata.shape[0] > 1:
                 axs[1].xaxis.set_major_formatter(my_date_format)
             if incl_legend:
                 axs[1].legend(
-                    prop={'size': 13}, ncol=1 if toy else 2, 
+                    prop={'size': 10}, ncol=1 if toy else 2, 
                     bbox_to_anchor=(0., 1.0 + legend_dy, 1.0 + legend_dx, .1), loc="center"
                 )#, loc="center left")
 
@@ -1054,7 +1054,8 @@ def _(
                     end   = now + pd.Timedelta(hours=self.duration.max())
                     for ax in axs:
                         ax.axvspan(start, end, color=time_to_color[time], alpha=0.2)
-
+            axs[1].set_ylim([0.0, 0.75])
+        
             # already got legend above
             if save:
                 plt.savefig(fig_dir + f"/weather_{self.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
@@ -1198,7 +1199,7 @@ def _(mo):
 @app.cell
 def _(Weather):
     weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
-    weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
+    # weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
     # weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
@@ -1373,7 +1374,7 @@ def _(mo):
 @app.cell
 def _(mof_water_ads, viz_water_delivery, water_del, weather):
     if weather.location == "Socorro":
-        viz_water_delivery(water_del, "CAU-23", 9, mof_water_ads, weather)
+        viz_water_delivery(water_del, "KMF-1", 9, mof_water_ads, weather)
     return
 
 
@@ -1420,7 +1421,14 @@ def _(mo):
 @app.cell
 def _(mof_water_ads, viz_water_delivery, water_del, weather):
     if weather.location == "Socorro":
-        viz_water_delivery(water_del, "MIL-160", 3, mof_water_ads, weather)
+        viz_water_delivery(water_del, "CAU-23", 0, mof_water_ads, weather)
+    return
+
+
+@app.cell
+def _(mof_water_ads, viz_water_delivery, water_del, weather):
+    if weather.location == "Socorro":
+        viz_water_delivery(water_del, "MOF-303", 0, mof_water_ads, weather)
     return
 
 
@@ -1777,6 +1785,12 @@ def _(opt_mass_of_mofs, pure_mof_harvester):
 
 
 @app.cell
+def _(pure_mof_harvester):
+    pure_mof_harvester["mass [kg]"].min()
+    return
+
+
+@app.cell
 def _():
     def get_active_mofs(opt_mass_of_mofs):
         return opt_mass_of_mofs[opt_mass_of_mofs["mass [kg]"] > 0.0].index.values
@@ -1884,11 +1898,6 @@ def _(opt_info):
 @app.cell
 def _(water_del):
     water_del
-    return
-
-
-@app.cell
-def _():
     return
 
 
@@ -2140,7 +2149,7 @@ def _(
                 s=250, marker="*", clip_on=False, zorder=25, color="C1", edgecolor="black", label="optimal\ncomposition"
             )
 
-        max_mass = 30.0 if toy_mode else 50.0 # _opt_mass_of_mofs["mass [kg]"].max() * 2.5
+        max_mass = 30.0 if toy_mode else 100.0 # _opt_mass_of_mofs["mass [kg]"].max() * 2.5
 
         plt.xlim(0, max_mass)
         plt.ylim(0, max_mass)
@@ -2185,8 +2194,8 @@ def _(
         )
 
         plt.gca().set_aspect('equal', 'box')
-        plt.xticks([0, 10, 20, 30, 40, 50])
-        plt.yticks([0, 10, 20, 30, 40, 50])
+        plt.xticks([10*i for i in range(11)])
+        plt.yticks([10*i for i in range(11)])
         plt.xlim([0, max_mass])
         plt.ylim([0, max_mass])
 
