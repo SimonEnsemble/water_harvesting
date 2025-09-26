@@ -1055,7 +1055,7 @@ def _(
                     for ax in axs:
                         ax.axvspan(start, end, color=time_to_color[time], alpha=0.2)
             axs[1].set_ylim([0.0, 0.75])
-        
+
             # already got legend above
             if save:
                 plt.savefig(fig_dir + f"/weather_{self.loc_timespan_title}.pdf", format="pdf", bbox_inches="tight")
@@ -1199,7 +1199,7 @@ def _(mo):
 @app.cell
 def _(Weather):
     weather = Weather(6, 2024, "Tucson", day_min=1, day_max=10)
-    # weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
+    weather = Weather(6, 2024, "Socorro", day_min=1, day_max=10)
     # weather = Weather(8, 2024, "Tucson", day_min=11, day_max=20)
     weather.raw_data
     return (weather,)
@@ -1774,13 +1774,19 @@ def _(
 @app.cell
 def _(opt_mass_of_mofs):
     # composition by mass fraction
-    opt_mass_of_mofs / opt_mass_of_mofs["mass [kg]"].sum()
+    opt_mass_of_mofs / opt_mass_of_mofs["mass [kg]"].sum() * 100
     return
 
 
 @app.cell
 def _(opt_mass_of_mofs, pure_mof_harvester):
     print("ratio of mix-to-pure mass harvester: ", opt_mass_of_mofs["mass [kg]"].sum() / pure_mof_harvester["mass [kg]"].min())
+    return
+
+
+@app.cell
+def _(opt_mass_of_mofs, pure_mof_harvester):
+    (opt_mass_of_mofs.sum() - pure_mof_harvester["mass [kg]"].min()) / pure_mof_harvester["mass [kg]"].min() * 100
     return
 
 
@@ -1844,7 +1850,7 @@ def _(np, opt_info, weather):
 
 @app.cell
 def _(fig_dir, mof_to_color, my_date_format, plt):
-    def viz_opt_water_delivery_time_series(water_del, opt_mass_of_mofs, daily_water_demand, weather):
+    def viz_opt_water_delivery_time_series(water_del, opt_mass_of_mofs, daily_water_demand, weather, save_tag=""):
         # list of MOFs comprising water harvester
         mofs = [mof for mof in opt_mass_of_mofs.sort_values("mass [kg]", ascending=False).index 
                 if opt_mass_of_mofs.loc[mof, "mass [kg]"] > 0
@@ -1855,9 +1861,11 @@ def _(fig_dir, mof_to_color, my_date_format, plt):
         plt.xticks(rotation=90, ha='center')
         bottom = [0 for d in water_del["date"]]
         for mof in mofs:
+            # water delivery by this MOF over the days
             w_mof = water_del[mof + " water delivery [g/g]"] * opt_mass_of_mofs.loc[mof, "mass [kg]"]
-            plt.bar(water_del["date"], w_mof, 
-                    color=mof_to_color[mof], label=mof, bottom=bottom, edgecolor="k"
+            plt.bar(
+                water_del["date"], w_mof, 
+                color=mof_to_color[mof], label=mof, bottom=bottom, edgecolor="k"
             )
             bottom = bottom + w_mof
         plt.axhline(y=daily_water_demand, color="black", linestyle="--", label="demand")
@@ -1870,10 +1878,12 @@ def _(fig_dir, mof_to_color, my_date_format, plt):
         if weather.location == "Socorro":
             plt.ylim(0, 5.0)
         plt.savefig(
-            fig_dir + f"/opt_water_delivery_{weather.loc_timespan_title}.pdf", 
+            fig_dir + f"/opt_water_delivery_{weather.loc_timespan_title}" + save_tag + ".pdf", 
             format="pdf", bbox_inches="tight"
         )
         plt.show()
+
+        return bottom # by this point, this is the water delivered on each day
     return (viz_opt_water_delivery_time_series,)
 
 
@@ -2045,15 +2055,23 @@ def _(mo):
 
 
 @app.cell
+def _(opt_mass_of_mofs):
+    opt_mass_of_mofs
+    return
+
+
+@app.cell
 def _(
     checkbox,
     copy,
     daily_water_demand,
     mof_water_ads,
     mofs,
+    opt_mass_of_mofs,
     optimize_harvester,
     predict_water_delivery,
     truncnorm,
+    viz_opt_water_delivery_time_series,
     viz_optimal_harvester,
     weather,
 ):
@@ -2081,22 +2099,82 @@ def _(
         new_water_del = predict_water_delivery(new_weather, {mof: mof_water_ads[mof] for mof in mofs})
 
         ###
-        # design adsorbent bed
+        # design new adsorbent bed
         ###
         opt_mass_of_mofs, min_mass, opt_info = optimize_harvester(mofs, new_water_del, daily_water_demand, verbose=False)
 
-        return opt_mass_of_mofs
+        return opt_mass_of_mofs, new_water_del
 
     sigma = {"T [°C]": 2.0, "P/P0": 0.02}
     n_weather_designs = 12
 
     if checkbox.value:
         perturbed_weather_designs = [
-            design_under_perturbed_weather(weather, mof_water_ads, daily_water_demand, sigma) for _d in range(n_weather_designs)
+            design_under_perturbed_weather(weather, mof_water_ads, daily_water_demand, sigma) 
+                for _d in range(100)
         ]
 
-        for _d in range(n_weather_designs):
-            viz_optimal_harvester(mofs, perturbed_weather_designs[_d], None, weather, save_tag=f"modified_weather_{_d}")
+        worst_case_water_shortfall_old_design = []
+        nb_days_demand_met = []
+
+        for _d in range(100):
+            new_opt_mass_of_mofs = perturbed_weather_designs[_d][0]
+            new_water_del = perturbed_weather_designs[_d][1]
+
+            _save_tag = f"modified_weather_{_d}"
+            if _d <= n_weather_designs:
+                # new design
+                viz_optimal_harvester(mofs, new_opt_mass_of_mofs, None, weather, save_tag=_save_tag)
+        
+            # performance of old design
+            daily_water_dels = viz_opt_water_delivery_time_series(
+                new_water_del, opt_mass_of_mofs, daily_water_demand, weather, save_tag=_save_tag
+            )
+
+            # water shortfall analysis
+            water_shortfalls = daily_water_demand - daily_water_dels
+        
+            worst_case_water_shortfall_old_design.append(water_shortfalls.max())
+            nb_days_demand_met.append((water_shortfalls > 0.0).sum())
+    return nb_days_demand_met, worst_case_water_shortfall_old_design
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""viz water shortfalls of old design.""")
+    return
+
+
+@app.cell
+def _(worst_case_water_shortfall_old_design):
+    worst_case_water_shortfall_old_design
+    return
+
+
+@app.cell
+def _(daily_water_demand, np, plt, worst_case_water_shortfall_old_design):
+    plt.figure()
+    plt.hist(np.array(worst_case_water_shortfall_old_design) / daily_water_demand)
+    _mu = np.mean(np.array(worst_case_water_shortfall_old_design) / daily_water_demand)
+    plt.axvline([_mu], color="gray", linestyle="--")
+    plt.xlabel("worst-case water shortfall\n[fraction of demand]")
+    plt.ylabel("# scenarios")
+    plt.tight_layout()
+    plt.savefig("water_shortfall_sensitivity_analysis.pdf", format="pdf")
+    plt.show()
+    return
+
+
+@app.cell
+def _(nb_days_demand_met, np, plt):
+    plt.figure()
+    plt.hist(nb_days_demand_met, bins=np.arange(12)-0.5)
+    plt.xticks(np.arange(11))
+    plt.xlabel("# days with water shortfall")
+    plt.ylabel("# scenarios")
+    plt.tight_layout()
+    plt.savefig("water_shortfall_sensitivity_analysis.pdf", format="pdf")
+    plt.show()
     return
 
 
