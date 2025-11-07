@@ -1,7 +1,7 @@
 # :potable_water: optimizing the composition of an adsorbent bed of a water harvester
 
 regarding the paper
-> C. Harriman, Q. Ke, T. Vlugt, A. Howarth, C. Simon. "Optimizing mixtures of metal–organic frameworks for robust and bespoke passive atmospheric water harvesting". (2025) [ChemRxiv link.](https://chemrxiv.org/engage/chemrxiv/article-details/67f55a6efa469535b949faf9)
+> C. Harriman, Q. Ke, T. Vlugt, A. Howarth, C. Simon. "Optimizing mixtures of metal–organic frameworks for robust and bespoke passive atmospheric water harvesting". _ACS Engineering Au_. (2025) [link](https://pubs.acs.org/doi/full/10.1021/acsengineeringau.5c00051)
 
 this repo contains the:
 * compiled water adsorption isotherm data in the MOFs (see `new/data/*.csv`)
